@@ -130,16 +130,19 @@ const normalizeNumberFormat = (str) => {
     // Nếu chỉ có 1 dấu phẩy, kiểm tra vị trí
     const commaPos = str.lastIndexOf(',');
     const afterComma = str.substring(commaPos + 1);
-    // Nếu sau dấu phẩy có <= 3 chữ số và toàn bộ là số, có thể là thập phân
-    if (afterComma.length <= 3 && /^\d+$/.test(afterComma)) {
-      // Nếu số trước dấu phẩy có dấu phân cách khác hoặc >= 4 chữ số, là phân cách hàng nghìn
-      const beforeComma = str.substring(0, commaPos);
-      if (beforeComma.length >= 4 || beforeComma.includes('.')) {
-        return str.replace(/,/g, '');
-      }
-      // Ngược lại, coi như thập phân, chuyển thành dấu chấm
+    const beforeComma = str.substring(0, commaPos);
+    
+    // Nếu sau dấu phẩy có đúng 3 chữ số, rất có khả năng là phân cách hàng nghìn
+    if (afterComma.length === 3 && /^\d+$/.test(afterComma)) {
+      return str.replace(/,/g, '');
+    }
+    
+    // Nếu sau dấu phẩy có 1-2 chữ số, thường là thập phân (cents)
+    if (afterComma.length <= 2 && /^\d+$/.test(afterComma) && beforeComma.length >= 1) {
+      // Chuyển thành dấu chấm cho thập phân
       return str.replace(',', '.');
     }
+    
     // Các trường hợp khác, loại bỏ dấu phẩy
     return str.replace(/,/g, '');
   }
