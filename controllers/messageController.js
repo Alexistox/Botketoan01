@@ -27,8 +27,7 @@ const {
   handleStartCommand,
   handleFormatCommand,
   handlePicCommand,
-  isPicModeEnabled,
-  handleExcelExportCommand
+  isPicModeEnabled
 } = require('./utilCommands');
 
 const {
@@ -96,7 +95,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleBankNotificationReply(bot, msg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
       }
       return;
     }
@@ -110,7 +109,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handlePicModeReply(bot, msg, msg.text);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -130,7 +129,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleClearCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
       }
       return;
     }
@@ -146,7 +145,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleRateCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
       }
       return;
     }
@@ -156,7 +155,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleExchangeRateCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
       }
       return;
     }
@@ -166,7 +165,8 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handlePercentCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
+      }
       return;
     }
     
@@ -186,7 +186,7 @@ const handleMessage = async (bot, msg, cache) => {
         }
         await handleDualRateCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
       }
       return;
     }
@@ -205,7 +205,7 @@ const handleMessage = async (bot, msg, cache) => {
         }
         await handleSkipCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
       }
       return;
     }
@@ -221,7 +221,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/op ' + messageText.substring(prefixLength).trim();
         await handleAddOperatorInGroupCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
       }
       return;
     }
@@ -237,7 +237,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/removeop ' + messageText.substring(prefixLength).trim();
         await handleRemoveOperatorInGroupCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
       }
       return;
     }
@@ -269,7 +269,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/usdt ' + messageText.substring(prefixLength).trim();
         await handleSetUsdtAddressCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
       }
       return;
     }
@@ -280,7 +280,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/usdtxn ' + messageText.substring(prefixLength).trim();
         await handleUsdtConfirmCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
       }
       return;
     }
@@ -291,7 +291,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/usdtxxn ' + messageText.substring(prefixLength).trim();
         await handleUsdtRemoveConfirmCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
       }
       return;
     }
@@ -302,7 +302,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/usdtxxn ' + messageText.substring(prefixLength).trim();
         await handleUsdtRemoveConfirmCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
       }
       return;
     }
@@ -314,7 +314,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserAdmin(userId)) {
         await handleRemoveUsdtCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
       }
       return;
     }
@@ -380,7 +380,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleCurrencyUnitCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -401,7 +401,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleSkipCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -411,7 +411,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleDualRateCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -421,7 +421,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleWithdrawRateCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -431,7 +431,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleHideCardCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -441,7 +441,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleShowCardCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -451,7 +451,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleListHiddenCardsCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -461,7 +461,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleDeleteCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -472,7 +472,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleAddInlineCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -482,7 +482,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleRemoveInlineCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -492,7 +492,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await displayInlineButtons(bot, chatId);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -502,7 +502,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserAdmin(userId)) {
           await handleSetUsdtAddressCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
         }
         return;
       }
@@ -527,7 +527,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleReport1Command(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -537,22 +537,12 @@ const handleMessage = async (bot, msg, cache) => {
         return;
       }
       
-      if (messageText === '/excel') {
-        // Kiểm tra quyền Operator
-        if (await isUserOperator(userId, chatId)) {
-          await handleExcelExportCommand(bot, msg);
-        } else {
-          bot.sendMessage(chatId, "");
-        }
-        return;
-      }
-      
       if (messageText.startsWith('/pic ')) {
         // Kiểm tra quyền Operator
         if (await isUserOperator(userId, chatId)) {
           await handlePicCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -593,7 +583,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleEnableButtonsCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -603,7 +593,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleDisableButtonsCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
         }
         return;
       }
@@ -624,7 +614,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserAdmin(userId)) {
           await handleUsdtConfirmCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
         }
         return;
       }
@@ -634,7 +624,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserAdmin(userId)) {
           await handleUsdtRemoveConfirmCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
         }
         return;
       }
@@ -643,7 +633,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserAdmin(userId)) {
           await handleRemoveUsdtCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, "");
+          bot.sendMessage(chatId, "⛔ 只有机器人所有者和管理员才能使用此命令！");
         }
         return;
       }
@@ -671,7 +661,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handlePlusCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
       }
       return;
     }
@@ -681,7 +671,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleMinusCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, "");
+        bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
       }
       return;
     }
