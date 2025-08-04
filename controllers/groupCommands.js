@@ -62,65 +62,25 @@ const handleClearCommand = async (bot, msg) => {
     // Xóa toàn bộ thẻ thuộc nhóm hiện tại
     await Card.deleteMany({ chatId: msg.chat.id.toString() });
     
-    // Tính toán giá trị ví dụ
-    let exampleValue = 0;
-    if (currentExRate > 0) {
-      exampleValue = (100000 / currentExRate) * (1 - currentRate / 100);
-    }
-    
-    // Lấy đơn vị tiền tệ
-    const configCurrency = await Config.findOne({ key: `CURRENCY_UNIT_${msg.chat.id}` });
-    const currencyUnit = configCurrency ? configCurrency.value : 'USDT';
-    
-    // Lấy thông tin giao dịch gần đây
-    const todayDate = new Date();
-    const depositData = await getDepositHistory(msg.chat.id);
-    const paymentData = await getPaymentHistory(msg.chat.id);
-    const cardSummary = await getCardSummary(msg.chat.id);
-    
-    // Tạo response JSON
-    const responseData = {
-      date: formatDateUS(todayDate),
-      depositData,
-      paymentData,
-      rate: formatRateValue(currentRate) + "%",
-      exchangeRate: formatRateValue(currentExRate),
-      example: formatSmart(exampleValue),
-      totalAmount: "0",
-      totalUSDT: "0",
-      totalDepositUSDT: "0",
-      totalDepositVND: "0", 
-      totalWithdrawUSDT: "0",
-      totalWithdrawVND: "0",
-      paidUSDT: "0",
-      remainingUSDT: "0",
-      currencyUnit,
-      cards: [] // Empty after clear
-    };
-    
     // Kiểm tra nếu có withdraw rate để hiển thị thông tin đầy đủ
     const hasWithdrawRate = group.withdrawRate !== null && group.withdrawExchangeRate !== null;
-    if (hasWithdrawRate) {
-      responseData.withdrawRate = formatRateValue(group.withdrawRate) + "%";
-      responseData.withdrawExchangeRate = formatRateValue(group.withdrawExchangeRate);
+    
+    // Chỉ hiển thị thông báo đơn giản về tỷ giá
+    let simpleMessage = `上课！`;
+    
+    if (currentRate > 0 && currentExRate > 0) {
+      simpleMessage += `\n 当前费率: ${formatRateValue(currentRate)}% | 汇率: ${formatRateValue(currentExRate)}`;
+      
+      if (hasWithdrawRate) {
+        simpleMessage += `\n 出款费率: ${formatRateValue(group.withdrawRate)}% | 汇率: ${formatRateValue(group.withdrawExchangeRate)}`;
+      }
+    } else if (currentRate > 0 || currentExRate > 0) {
+      simpleMessage += `\n⚠️ 请设置完整的费率和汇率`;
+    } else {
+      simpleMessage += `\n⚠️ 请先设置费率和汇率`;
     }
     
-    // Lấy format của người dùng
-    const userFormat = await getGroupNumberFormat(msg.chat.id);
-    
-    // Format và gửi tin nhắn - sử dụng formatter phù hợp
-    const response = hasWithdrawRate ? 
-      formatWithdrawRateMessage(responseData, userFormat) : 
-      formatTelegramMessage(responseData, userFormat);
-    
-    // Kiểm tra trạng thái hiển thị buttons
-    const showButtons = await getButtonsStatus(msg.chat.id);
-    const keyboard = showButtons ? await getInlineKeyboard(msg.chat.id) : null;
-    
-    bot.sendMessage(msg.chat.id, response, { 
-      parse_mode: 'Markdown',
-      reply_markup: keyboard
-    });
+    bot.sendMessage(msg.chat.id, simpleMessage);
     
   } catch (error) {
     console.error('Error in handleClearCommand:', error);

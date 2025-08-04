@@ -27,7 +27,8 @@ const {
   handleStartCommand,
   handleFormatCommand,
   handlePicCommand,
-  isPicModeEnabled
+  isPicModeEnabled,
+  handleExcelCommand
 } = require('./utilCommands');
 
 const {
@@ -600,6 +601,17 @@ const handleMessage = async (bot, msg, cache) => {
 
       if (messageText === '/st') {
         await handleStartCommand(bot, chatId);
+        return;
+      }
+
+      // Xử lý lệnh /excel
+      if (messageText.startsWith('/excel')) {
+        // Kiểm tra quyền Operator
+        if (await isUserOperator(userId, chatId)) {
+          await handleExcelCommand(bot, msg);
+        } else {
+          bot.sendMessage(chatId, "⛔ 您无权使用此命令！需要操作员权限。");
+        }
         return;
       }
 

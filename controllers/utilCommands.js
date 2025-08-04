@@ -319,6 +319,7 @@ const handleHelpCommand = async (bot, chatId) => {
 上课 - 清空今日交易
 /delete [ID] - 删除交易记录
 /skip [ID] - 跳过某条交易
+/excel [群组ID] - 导出交易记录到Excel (可选群组ID)
 
 
 -------------------------
@@ -478,6 +479,100 @@ const isPicModeEnabled = async (chatId) => {
   }
 };
 
+/**
+ * Xử lý lệnh xuất Excel (/excel)
+ */
+const handleExcelCommand = async (bot, msg) => {
+  try {
+    const chatId = msg.chat.id;
+    const messageText = msg.text;
+    
+    // Phân tích tin nhắn để lấy ID nhóm (nếu có)
+    const parts = messageText.split(' ');
+    let targetChatId = chatId.toString();
+    
+    if (parts.length === 2) {
+      // Nếu có ID nhóm được chỉ định
+      targetChatId = parts[1].trim();
+    }
+    
+    // Tìm group
+    const group = await Group.findOne({ chatId: targetChatId });
+    if (!group) {
+      bot.sendMessage(chatId, "没有找到指定群组的数据。");
+      return;
+    }
+    
+    // Lấy tất cả transactions từ lastClearDate
+    const transactions = await Transaction.find({
+      chatId: targetChatId,
+      timestamp: { $gt: group.lastClearDate || new Date(0) },
+      skipped: { $ne: true }
+    }).sort({ timestamp: 1 });
+    
+    if (transactions.length === 0) {
+      bot.sendMessage(chatId, "没有可导出的交易记录。");
+      return;
+    }
+    
+    // Tạo CSV content
+    let csvContent = "时间,类型,金额,消息,发送者,卡号,费率,汇率\n";
+    
+    transactions.forEach(transaction => {
+      const timestamp = new Date(transaction.timestamp).toLocaleString('zh-CN', {
+        timeZone: 'Asia/Phnom_Penh',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      
+      const type = getTransactionTypeText(transaction.type);
+      const amount = transaction.amount || 0;
+      const message = (transaction.message || '').replace(/"/g, '""'); // Escape quotes
+      const senderName = (transaction.senderName || '').replace(/"/g, '""');
+      const cardCode = transaction.cardCode || '';
+      const rate = transaction.rate || '';
+      const exchangeRate = transaction.exchangeRate || '';
+      
+      csvContent += `"${timestamp}","${type}","${amount}","${message}","${senderName}","${cardCode}","${rate}","${exchangeRate}"\n`;
+    });
+    
+    // Gửi file CSV
+    const fileName = `transactions_${targetChatId}_${new Date().toISOString().split('T')[0]}.csv`;
+    const buffer = Buffer.from(csvContent, 'utf8');
+    
+    bot.sendDocument(chatId, buffer, {
+      filename: fileName,
+      contentType: 'text/csv'
+    }, {
+      caption: `📊 交易记录导出\n群组ID: ${targetChatId}\n记录数量: ${transactions.length}\n导出时间: ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Phnom_Penh' })}`
+    });
+    
+  } catch (error) {
+    console.error('Error in handleExcelCommand:', error);
+    bot.sendMessage(msg.chat.id, "导出Excel时出错。请稍后再试。");
+  }
+};
+
+/**
+ * Lấy text mô tả loại transaction
+ */
+const getTransactionTypeText = (type) => {
+  const typeMap = {
+    'deposit': '入款',
+    'withdraw': '出款', 
+    'payment': '代付',
+    'setRate': '设置费率',
+    'setWithdrawRate': '设置出款费率',
+    'clear': '清空数据',
+    'skip': '撤回'
+  };
+  return typeMap[type] || type;
+};
+
 module.exports = {
   handleCalculateUsdtCommand,
   handleCalculateVndCommand,
@@ -488,5 +583,6 @@ module.exports = {
   handleStartCommand,
   handleFormatCommand,
   handlePicCommand,
-  isPicModeEnabled
+  isPicModeEnabled,
+  handleExcelCommand
 }; 
