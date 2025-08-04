@@ -375,54 +375,8 @@ const handleDualRateCommand = async (bot, msg) => {
     
     await transaction.save();
     
-    // Tính toán giá trị ví dụ
-    const exampleValue = (100000 / newExRate) * (1 - newRate / 100);
-    
-    // Lấy đơn vị tiền tệ
-    const configCurrency = await Config.findOne({ key: `CURRENCY_UNIT_${chatId}` });
-    const currencyUnit = configCurrency ? configCurrency.value : 'USDT';
-    
-    // Lấy thông tin giao dịch gần đây
-    const todayDate = new Date();
-    const depositData = await getDepositHistory(chatId);
-    const paymentData = await getPaymentHistory(chatId);
-    const cardSummary = await getCardSummary(chatId);
-    
-    // Tạo response JSON
-    const responseData = {
-      date: formatDateUS(todayDate),
-      depositData,
-      paymentData,
-      rate: formatRateValue(newRate) + "%",
-      exchangeRate: formatRateValue(newExRate),
-      example: formatSmart(exampleValue),
-      totalAmount: formatSmart(group.totalVND),
-      totalUSDT: formatSmart(group.totalUSDT),
-      totalDepositUSDT: formatSmart(group.totalDepositUSDT || 0),
-      totalDepositVND: formatSmart(group.totalDepositVND || 0),
-      totalWithdrawUSDT: formatSmart(group.totalWithdrawUSDT || 0),
-      totalWithdrawVND: formatSmart(group.totalWithdrawVND || 0),
-      paidUSDT: formatSmart(group.usdtPaid),
-      remainingUSDT: formatSmart(group.remainingUSDT),
-      currencyUnit,
-      cards: cardSummary
-    };
-    
-    // Kiểm tra nếu có withdraw rate để hiển thị thông tin đầy đủ
-    const hasWithdrawRate = group.withdrawRate !== null && group.withdrawExchangeRate !== null;
-    if (hasWithdrawRate) {
-      responseData.withdrawRate = formatRateValue(group.withdrawRate) + "%";
-      responseData.withdrawExchangeRate = formatRateValue(group.withdrawExchangeRate);
-    }
-    
-    // Lấy format của người dùng
-    const userFormat = await getGroupNumberFormat(chatId);
-    
-    // Format và gửi tin nhắn - sử dụng formatter phù hợp
-    const response = hasWithdrawRate ? 
-      formatWithdrawRateMessage(responseData, userFormat) : 
-      formatTelegramMessage(responseData, userFormat);
-    bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    // Chỉ hiển thị thông báo đã thay đổi tỷ giá
+    bot.sendMessage(chatId, `✅ 已设置入款费率: ${formatRateValue(newRate)}% | 汇率: ${formatRateValue(newExRate)}`);
     
   } catch (error) {
     console.error('Error in handleDualRateCommand:', error);
@@ -504,47 +458,8 @@ const handleWithdrawRateCommand = async (bot, msg) => {
     
     await transaction.save();
     
-    // Tính toán giá trị ví dụ cho xuất tiền
-    const exampleWithdrawValue = (100000 / newWithdrawExRate) * (1 + newWithdrawRate / 100);
-    
-    // Lấy đơn vị tiền tệ
-    const configCurrency = await Config.findOne({ key: `CURRENCY_UNIT_${chatId}` });
-    const currencyUnit = configCurrency ? configCurrency.value : 'USDT';
-    
-    // Lấy thông tin giao dịch gần đây
-    const todayDate = new Date();
-    const depositData = await getDepositHistory(chatId);
-    const paymentData = await getPaymentHistory(chatId);
-    const cardSummary = await getCardSummary(chatId);
-    
-    // Tạo response JSON với thông tin mở rộng
-    const responseData = {
-      date: formatDateUS(todayDate),
-      depositData,
-      paymentData,
-      rate: (group.rate !== null && group.rate !== undefined) ? formatRateValue(group.rate) + "%" : "未设置",
-      exchangeRate: (group.exchangeRate !== null && group.exchangeRate !== undefined) ? formatRateValue(group.exchangeRate) : "未设置",
-      withdrawRate: formatRateValue(newWithdrawRate) + "%",
-      withdrawExchangeRate: formatRateValue(newWithdrawExRate),
-      withdrawExample: formatSmart(exampleWithdrawValue),
-      totalAmount: formatSmart(group.totalVND),
-      totalUSDT: formatSmart(group.totalUSDT),
-      totalDepositUSDT: formatSmart(group.totalDepositUSDT),
-      totalDepositVND: formatSmart(group.totalDepositVND || 0),
-      totalWithdrawUSDT: formatSmart(group.totalWithdrawUSDT),
-      totalWithdrawVND: formatSmart(group.totalWithdrawVND || 0),
-      paidUSDT: formatSmart(group.usdtPaid),
-      remainingUSDT: formatSmart(group.remainingUSDT),
-      currencyUnit,
-      cards: cardSummary
-    };
-    
-    // Lấy format của người dùng
-    const userFormat = await getGroupNumberFormat(chatId);
-    
-    // Format và gửi tin nhắn
-    const response = formatWithdrawRateMessage(responseData, userFormat);
-    bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    // Chỉ hiển thị thông báo đã thay đổi tỷ giá xuất tiền
+    bot.sendMessage(chatId, `✅ 已设置出款费率: ${formatRateValue(newWithdrawRate)}% | 汇率: ${formatRateValue(newWithdrawExRate)}`);
     
   } catch (error) {
     console.error('Error in handleWithdrawRateCommand:', error);

@@ -40,13 +40,13 @@ const handlePlusCommand = async (bot, msg) => {
           amountVND = eval(expr); // fallback cho biểu thức không có số đặc biệt
         }
       } catch(err) {
-        bot.sendMessage(chatId, "表达式无效，请重试。");
+        bot.sendMessage(chatId, "");
         return;
       }
     }
     
     if (isNaN(amountVND)) {
-      bot.sendMessage(chatId, "金额无效。");
+      bot.sendMessage(chatId, "");
       return;
     }
 
@@ -291,13 +291,13 @@ const handleMinusCommand = async (bot, msg) => {
           amountVND = eval(expr); // fallback cho biểu thức không có số đặc biệt
         }
       } catch(err) {
-        bot.sendMessage(chatId, "表达式无效，请重试。");
+        bot.sendMessage(chatId, "");
         return;
       }
     }
     
     if (isNaN(amountVND)) {
-      bot.sendMessage(chatId, "金额无效。");
+      bot.sendMessage(chatId, "");
       return;
     }
    
@@ -522,7 +522,7 @@ const handlePercentCommand = async (bot, msg) => {
           payUSDT = eval(expr); // fallback cho biểu thức không có số đặc biệt
         }
       } catch(err) {
-        bot.sendMessage(chatId, "表达式无效，请重试。");
+        bot.sendMessage(chatId, "");
         return;
       }
     }

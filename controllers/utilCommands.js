@@ -25,8 +25,8 @@ const handleCalculateUsdtCommand = async (bot, msg) => {
     // Lấy số tiền VND
     const amount = parseSpecialNumber(parts[1].trim());
     if (isNaN(amount)) {
-      bot.sendMessage(chatId, "金额无效。");
-      return;
+      bot.sendMessage(chatId, "");
+      return; 
     }
     
     // Tìm group
@@ -56,7 +56,7 @@ const handleCalculateUsdtCommand = async (bot, msg) => {
     );
   } catch (error) {
     console.error('Error in handleCalculateUsdtCommand:', error);
-    bot.sendMessage(msg.chat.id, "处理计算USDT命令时出错。请稍后再试。");
+    bot.sendMessage(msg.chat.id, "");
   }
 };
 
@@ -78,7 +78,7 @@ const handleCalculateVndCommand = async (bot, msg) => {
     // Lấy số tiền USDT
     const amount = parseSpecialNumber(parts[1].trim());
     if (isNaN(amount)) {
-      bot.sendMessage(chatId, "金额无效。");
+      bot.sendMessage(chatId, "");
       return;
     }
     
@@ -109,7 +109,7 @@ const handleCalculateVndCommand = async (bot, msg) => {
     );
   } catch (error) {
     console.error('Error in handleCalculateVndCommand:', error);
-    bot.sendMessage(msg.chat.id, "处理计算VND命令时出错。请稍后再试。");
+    bot.sendMessage(msg.chat.id, "");
   }
 };
 
@@ -126,12 +126,12 @@ const handleMathExpression = async (bot, chatId, expression, senderName) => {
         result = eval(expression); // fallback cho biểu thức thông thường
       }
     } catch (error) {
-      bot.sendMessage(chatId, "表达式无效，请重试。");
+      bot.sendMessage(chatId, "");
       return;
     }
     
     if (isNaN(result)) {
-      bot.sendMessage(chatId, "计算结果无效。");
+      bot.sendMessage(chatId, "");
       return;
     }
     
@@ -142,9 +142,9 @@ const handleMathExpression = async (bot, chatId, expression, senderName) => {
     );
   } catch (error) {
     console.error('Error in handleMathExpression:', error);
-    bot.sendMessage(chatId, "处理数学表达式时出错。请稍后再试。");
+    bot.sendMessage(chatId, "");
   }
-};
+}; 
 
 /**
  * Xử lý địa chỉ TRC20
