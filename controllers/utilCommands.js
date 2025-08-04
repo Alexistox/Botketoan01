@@ -319,7 +319,6 @@ const handleHelpCommand = async (bot, chatId) => {
 上课 - 清空今日交易
 /delete [ID] - 删除交易记录
 /skip [ID] - 跳过某条交易
-/excel [群组ID] - 导出交易记录到Excel (可选群组ID)
 
 
 -------------------------
@@ -482,83 +481,104 @@ const isPicModeEnabled = async (chatId) => {
 /**
  * Xử lý lệnh xuất Excel (/excel)
  */
-const handleExcelCommand = async (bot, msg) => {
+const handleExcelExportCommand = async (bot, msg) => {
   try {
     const chatId = msg.chat.id;
-    const messageText = msg.text;
-    
-    // Phân tích tin nhắn để lấy ID nhóm (nếu có)
-    const parts = messageText.split(' ');
-    let targetChatId = chatId.toString();
-    
-    if (parts.length === 2) {
-      // Nếu có ID nhóm được chỉ định
-      targetChatId = parts[1].trim();
-    }
+    const senderName = msg.from.first_name;
     
     // Tìm group
-    const group = await Group.findOne({ chatId: targetChatId });
+    const group = await Group.findOne({ chatId: chatId.toString() });
     if (!group) {
-      bot.sendMessage(chatId, "没有找到指定群组的数据。");
+      bot.sendMessage(chatId, "没有可用的数据。");
       return;
     }
     
     // Lấy tất cả transactions từ lastClearDate
+    const lastClearDate = group.lastClearDate || new Date(Date.now() - 24 * 60 * 60 * 1000); // Default to yesterday
+    
     const transactions = await Transaction.find({
-      chatId: targetChatId,
-      timestamp: { $gt: group.lastClearDate || new Date(0) },
+      chatId: chatId.toString(),
+      timestamp: { $gt: lastClearDate },
       skipped: { $ne: true }
     }).sort({ timestamp: 1 });
     
     if (transactions.length === 0) {
-      bot.sendMessage(chatId, "没有可导出的交易记录。");
+      bot.sendMessage(chatId, "当前没有交易数据可导出。");
       return;
     }
     
-    // Tạo CSV content
-    let csvContent = "时间,类型,金额,消息,发送者,卡号,费率,汇率\n";
+    // Import xlsx package (cần cài đặt)
+    let XLSX;
+    try {
+      XLSX = require('xlsx');
+    } catch (error) {
+      bot.sendMessage(chatId, "系统错误：缺少Excel导出功能所需的依赖包。请联系管理员安装xlsx包。");
+      return;
+    }
     
-    transactions.forEach(transaction => {
-      const timestamp = new Date(transaction.timestamp).toLocaleString('zh-CN', {
-        timeZone: 'Asia/Phnom_Penh',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-      
-      const type = getTransactionTypeText(transaction.type);
-      const amount = transaction.amount || 0;
-      const message = (transaction.message || '').replace(/"/g, '""'); // Escape quotes
-      const senderName = (transaction.senderName || '').replace(/"/g, '""');
-      const cardCode = transaction.cardCode || '';
-      const rate = transaction.rate || '';
-      const exchangeRate = transaction.exchangeRate || '';
-      
-      csvContent += `"${timestamp}","${type}","${amount}","${message}","${senderName}","${cardCode}","${rate}","${exchangeRate}"\n`;
+    // Chuẩn bị dữ liệu cho Excel
+    const excelData = transactions.map((transaction, index) => {
+      const vietnamTime = new Date(transaction.timestamp.getTime() + 7 * 60 * 60 * 1000);
+      return {
+        'ID': index + 1,
+        '时间': vietnamTime.toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }),
+        '类型': getTransactionTypeText(transaction.type),
+        '金额': transaction.amount || 0,
+        'USDT金额': transaction.usdtAmount || 0,
+        '卡号': transaction.cardCode || '',
+        '额度': transaction.limit || 0,
+        '操作人': transaction.senderName || '',
+        '消息': transaction.message || '',
+        '详情': transaction.details || '',
+        '费率%': transaction.rate || 0,
+        '汇率': transaction.exchangeRate || 0,
+        '消息ID': transaction.messageId || '',
+        '已跳过': transaction.skipped ? '是' : '否',
+        '跳过原因': transaction.skipReason || ''
+      };
     });
     
-    // Gửi file CSV
-    const fileName = `transactions_${targetChatId}_${new Date().toISOString().split('T')[0]}.csv`;
-    const buffer = Buffer.from(csvContent, 'utf8');
+    // Tạo workbook và worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
     
+    // Đặt tên cho sheet
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('zh-CN').replace(/\//g, '-');
+    const sheetName = `交易记录_${dateStr}`;
+    
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    
+    // Tạo buffer
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    
+    // Tạo tên file
+    const fileName = `交易记录_群组${Math.abs(chatId)}_${dateStr}.xlsx`;
+    
+    // Gửi file Excel
     bot.sendDocument(chatId, buffer, {
       filename: fileName,
-      contentType: 'text/csv'
+      caption: `📊 交易记录导出\n📅 导出时间: ${today.toLocaleString('zh-CN')}\n📈 总记录数: ${transactions.length}条\n👤 导出人: ${senderName}`
     }, {
-      caption: `📊 交易记录导出\n群组ID: ${targetChatId}\n记录数量: ${transactions.length}\n导出时间: ${new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Phnom_Penh' })}`
+      filename: fileName,
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     });
     
   } catch (error) {
-    console.error('Error in handleExcelCommand:', error);
-    bot.sendMessage(msg.chat.id, "导出Excel时出错。请稍后再试。");
+    console.error('Error in handleExcelExportCommand:', error);
+    bot.sendMessage(msg.chat.id, "导出Excel文件时出错。请稍后再试。");
   }
 };
 
 /**
- * Lấy text mô tả loại transaction
+ * Chuyển đổi loại transaction thành text tiếng Trung
  */
 const getTransactionTypeText = (type) => {
   const typeMap = {
@@ -566,9 +586,11 @@ const getTransactionTypeText = (type) => {
     'withdraw': '出款', 
     'payment': '代付',
     'setRate': '设置费率',
+    'setExchangeRate': '设置汇率',
     'setWithdrawRate': '设置出款费率',
     'clear': '清空数据',
-    'skip': '撤回'
+    'delete': '删除',
+    'skip': '跳过'
   };
   return typeMap[type] || type;
 };
@@ -584,5 +606,5 @@ module.exports = {
   handleFormatCommand,
   handlePicCommand,
   isPicModeEnabled,
-  handleExcelCommand
+  handleExcelExportCommand
 }; 
