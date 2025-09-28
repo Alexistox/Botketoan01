@@ -72,7 +72,7 @@ const handleClearCommand = async (bot, msg) => {
       simpleMessage += `收款费率: ${formatRateValue(currentRate)}% | 汇率: ${formatRateValue(currentExRate)}`;
       
       if (hasWithdrawRate) {
-        simpleMessage += `出款费率: ${formatRateValue(group.withdrawRate)}% | 汇率: ${formatRateValue(group.withdrawExchangeRate)}`;
+        simpleMessage += `\n出款费率: ${formatRateValue(group.withdrawRate)}% | 汇率: ${formatRateValue(group.withdrawExchangeRate)}`;
       }
     }
     
@@ -494,15 +494,15 @@ const getDepositHistory = async (chatId) => {
       type: { $in: ['deposit', 'withdraw'] },
       timestamp: { $gt: lastClearDate },
       skipped: { $ne: true } // Không lấy các giao dịch đã bị skip
-    }).sort({ timestamp: 1 }); // Sắp xếp theo thời gian tăng dần (ID sẽ tăng dần, cũ đến mới)
+    }).sort({ timestamp: -1 }); // Sắp xếp theo thời gian giảm dần (mới đến cũ)
     
     if (transactions.length === 0) return { entries: [] };
     
     // Format lại các chi tiết với messageId và senderName
-    // Gán ID theo thứ tự giao dịch
+    // Gán ID theo thứ tự giao dịch (mới nhất = length)
     const entries = transactions.map((t, index) => {
       return {
-        id: index + 1, // ID theo thứ tự trong mảng
+        id: transactions.length - index, // ID mới nhất = length, cũ nhất = 1
         details: t.details,
         messageId: t.messageId || null,
         chatLink: t.messageId ? `https://t.me/c/${chatId.toString().replace('-100', '')}/${t.messageId}` : null,
@@ -511,8 +511,8 @@ const getDepositHistory = async (chatId) => {
       };
     });
     
-    // Chỉ lấy 6 giao dịch gần đây nhất nếu có quá nhiều giao dịch
-    return { entries: entries.slice(-5), totalCount: entries.length };
+    // Chỉ lấy 5 giao dịch gần đây nhất nếu có quá nhiều giao dịch
+    return { entries: entries.slice(0, 5), totalCount: entries.length };
   } catch (error) {
     console.error('Error in getDepositHistory:', error);
     return { entries: [], totalCount: 0 };
@@ -536,15 +536,15 @@ const getPaymentHistory = async (chatId) => {
       type: 'payment',
       timestamp: { $gt: lastClearDate },
       skipped: { $ne: true } // Không lấy các giao dịch đã bị skip
-    }).sort({ timestamp: 1 }); // Sắp xếp theo thời gian tăng dần (ID sẽ tăng dần, cũ đến mới)
+    }).sort({ timestamp: -1 }); // Sắp xếp theo thời gian giảm dần (mới đến cũ)
     
     if (transactions.length === 0) return { entries: [] };
     
     // Format lại các chi tiết với messageId và senderName
-    // Gán ID theo thứ tự giao dịch
+    // Gán ID theo thứ tự giao dịch (mới nhất = length)
     const entries = transactions.map((t, index) => {
       return {
-        id: index + 1, // ID theo thứ tự trong mảng
+        id: transactions.length - index, // ID mới nhất = length, cũ nhất = 1
         details: t.details,
         messageId: t.messageId || null,
         chatLink: t.messageId ? `https://t.me/c/${chatId.toString().replace('-100', '')}/${t.messageId}` : null,
@@ -554,7 +554,7 @@ const getPaymentHistory = async (chatId) => {
     });
     
     // Chỉ lấy 3 giao dịch gần đây nhất nếu có quá nhiều giao dịch
-    return { entries: entries.slice(-3), totalCount: entries.length };
+    return { entries: entries.slice(0, 3), totalCount: entries.length };
   } catch (error) {
     console.error('Error in getPaymentHistory:', error);
     return { entries: [], totalCount: 0 };

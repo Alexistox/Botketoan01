@@ -97,9 +97,13 @@ function generateReportHTML(transactions, chatId) {
     totalUSDT: transactions.filter(t => t.type === 'payment').reduce((sum, t) => sum + t.usdtAmount, 0)
   };
 
-  const transactionRows = transactions.map((tx, index) => `
+  const transactionRows = transactions.map((tx, index) => {
+    const isNewest = index === 0; // Giao dịch đầu tiên là mới nhất
+    const fireEmoji = isNewest ? '🔥 ' : '';
+    
+    return `
     <tr>
-      <td>${index + 1}</td>
+      <td>${index + 1} ${fireEmoji}</td>
       <td><span class="type-badge" style="background-color: ${typeColors[tx.type] || '#6c757d'}">${typeLabels[tx.type] || tx.type}</span></td>
       <td class="amount">${tx.amount ? tx.amount.toLocaleString() : '-'}</td>
       <td class="amount">${tx.usdtAmount ? tx.usdtAmount.toLocaleString() : '-'}</td>
@@ -107,7 +111,8 @@ function generateReportHTML(transactions, chatId) {
       <td class="timestamp">${new Date(tx.timestamp).toLocaleString('vi-VN')}</td>
       <td class="message">${tx.message || '-'}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   return `
     <!DOCTYPE html>

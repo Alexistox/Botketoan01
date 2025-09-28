@@ -188,7 +188,7 @@ const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
       type: { $in: ['deposit', 'withdraw'] },
       timestamp: { $gt: lastClearDate },
       skipped: { $ne: true }
-    }).sort({ timestamp: 1 });
+    }).sort({ timestamp: -1 });
     
     // Lấy tất cả các giao dịch payment
     const paymentTransactions = await Transaction.find({
@@ -196,12 +196,12 @@ const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
       type: 'payment',
       timestamp: { $gt: lastClearDate },
       skipped: { $ne: true }
-    }).sort({ timestamp: 1 });
+    }).sort({ timestamp: -1 });
     
-    // Format dữ liệu giao dịch deposit
+    // Format dữ liệu giao dịch deposit (mới nhất trước)
     const depositEntries = depositTransactions.map((t, index) => {
       return {
-        id: index + 1,
+        id: depositTransactions.length - index, // ID mới nhất = length, cũ nhất = 1
         details: t.details,
         messageId: t.messageId || null,
         chatLink: t.messageId ? `https://t.me/c/${chatId.toString().replace('-100', '')}/${t.messageId}` : null,
@@ -210,10 +210,10 @@ const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
       };
     });
     
-    // Format dữ liệu giao dịch payment
+    // Format dữ liệu giao dịch payment (mới nhất trước)
     const paymentEntries = paymentTransactions.map((t, index) => {
       return {
-        id: index + 1,
+        id: paymentTransactions.length - index, // ID mới nhất = length, cũ nhất = 1
         details: t.details,
         messageId: t.messageId || null,
         chatLink: t.messageId ? `https://t.me/c/${chatId.toString().replace('-100', '')}/${t.messageId}` : null,

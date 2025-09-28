@@ -611,7 +611,7 @@ const evaluateSpecialExpression = (expr) => {
  * @returns {Boolean} - true nếu là địa chỉ TRC20 hợp lệ
  */
 const isTrc20Address = (str) => {
-  const re = /^T[1-9A-Za-z]{33}$/;
+  const re = /^T[A-Za-z0-9]{33}$/;
   return re.test(str);
 };
 
@@ -683,7 +683,7 @@ const formatTelegramMessage = (jsonData, numberFormat = 'default') => {
   // Date header - using US format (MM/DD/YYYY)
   const currentDate = new Date();
   const formattedDate = formatDateUS(currentDate);
-  output += `*${formattedDate}:*\n`;
+  output += `*${formattedDate}*\n`;
   
   // Deposits section
   if (jsonData.depositData && jsonData.depositData.entries && jsonData.depositData.entries.length > 0) {
@@ -691,12 +691,15 @@ const formatTelegramMessage = (jsonData, numberFormat = 'default') => {
     output += `*已入账* (${depositCount}笔):\n`;
     
     // Format giao dịch với ID và link
-    jsonData.depositData.entries.forEach((entry) => {
+    jsonData.depositData.entries.forEach((entry, index) => {
       // Sử dụng ID từ entry thay vì tạo ID mới
       const id = entry.id || (entry.index + 1);
+      const isNewest = index === 0; // Giao dịch đầu tiên là mới nhất
+      const fireEmoji = isNewest ? '🟢 ' : '';
+      
       if (entry.messageId && entry.chatLink) {
         // Tạo link đến tin nhắn gốc với ID là phần clickable
-        output += `${entry.details} (id[${id}](${entry.chatLink}))\n`;
+        output += `${entry.details} ${fireEmoji}(id[${id}](${entry.chatLink}))\n`;
       }
     });
     output += '\n';
@@ -710,13 +713,16 @@ const formatTelegramMessage = (jsonData, numberFormat = 'default') => {
     output += `*已下发* (${paymentCount}笔):\n`;
     
     // Format giao dịch với ID và link
-    jsonData.paymentData.entries.forEach((entry) => {
+    jsonData.paymentData.entries.forEach((entry, index) => {
       // Dùng ký hiệu ! trước ID của payment
       // Sử dụng ID từ entry thay vì tạo ID mới
       const id = `!${entry.id || (entry.index + 1)}`;
+      const isNewest = index === 0; // Giao dịch đầu tiên là mới nhất
+      const fireEmoji = isNewest ? '🔥 ' : '';
+      
       if (entry.messageId && entry.chatLink) {
         // Tạo link đến tin nhắn gốc với ID là phần clickable
-        output += `${entry.details} ([${id}](${entry.chatLink}))\n`;
+        output += `${entry.details} ${fireEmoji}([${id}](${entry.chatLink}))\n`;
       }
     });
     output += '\n';
@@ -764,10 +770,13 @@ const formatWithdrawRateMessage = (jsonData, numberFormat = 'default') => {
     const depositCount = jsonData.depositData.totalCount || jsonData.depositData.entries.length;
     output += `*已入账* (${depositCount}笔):\n`;
     
-    jsonData.depositData.entries.forEach((entry) => {
+    jsonData.depositData.entries.forEach((entry, index) => {
       const id = entry.id || (entry.index + 1);
+      const isNewest = index === 0; // Giao dịch đầu tiên là mới nhất
+      const fireEmoji = isNewest ? '🔥 ' : '';
+      
       if (entry.messageId && entry.chatLink) {
-        output += `${entry.details} (id[${id}](${entry.chatLink}))\n`;
+        output += `${entry.details} ${fireEmoji}(id[${id}](${entry.chatLink}))\n`;
       }
     });
     output += '\n';
@@ -780,10 +789,13 @@ const formatWithdrawRateMessage = (jsonData, numberFormat = 'default') => {
     const paymentCount = jsonData.paymentData.totalCount || jsonData.paymentData.entries.length;
     output += `*已下发* (${paymentCount}笔):\n`;
     
-    jsonData.paymentData.entries.forEach((entry) => {
+    jsonData.paymentData.entries.forEach((entry, index) => {
       const id = `!${entry.id || (entry.index + 1)}`;
+      const isNewest = index === 0; // Giao dịch đầu tiên là mới nhất
+      const fireEmoji = isNewest ? '🔥 ' : '';
+      
       if (entry.messageId && entry.chatLink) {
-        output += `${entry.details} ([${id}](${entry.chatLink}))\n`;
+        output += `${entry.details} ${fireEmoji}([${id}](${entry.chatLink}))\n`;
       }
     });
     output += '\n';

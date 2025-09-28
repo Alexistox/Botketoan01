@@ -1,35 +1,54 @@
 const mongoose = require('mongoose');
 
 const UsdtMediaSchema = new mongoose.Schema({
-  address: {
+  chatId: {
+    type: String,
+    required: true,
+    ref: 'Group'
+  },
+  usdtAddress: {
     type: String,
     required: true
   },
-  mediaType: {
-    type: String, // photo, video, animation, sticker
-    required: true
-  },
-  fileId: {
+  mediaFiles: [{
+    fileId: {
+      type: String,
+      required: true
+    },
+    fileType: {
+      type: String,
+      enum: ['photo', 'video', 'animation', 'document'],
+      required: true
+    },
+    caption: {
+      type: String,
+      default: ''
+    },
+    messageId: {
+      type: String,
+      default: null
+    }
+  }],
+  senderId: {
     type: String,
     required: true
   },
-  fileUniqueId: {
-    type: String
-  },
-  ownerId: {
-    type: String // user id của người lưu
+  senderName: {
+    type: String,
+    required: true
   },
   createdAt: {
     type: Date,
     default: Date.now
   },
-  confirmedBy: [
-    {
-      username: String,
-      userId: String,
-      fullName: String
-    }
-  ]
-});
+  isActive: {
+    type: Boolean,
+    default: true
+  }
+}, { timestamps: true });
 
-module.exports = mongoose.model('UsdtMedia', UsdtMediaSchema); 
+// Index để tìm kiếm nhanh
+UsdtMediaSchema.index({ chatId: 1, isActive: 1 });
+UsdtMediaSchema.index({ usdtAddress: 1 });
+
+module.exports = mongoose.model('UsdtMedia', UsdtMediaSchema);

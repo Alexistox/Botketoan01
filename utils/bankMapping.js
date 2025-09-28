@@ -64,6 +64,7 @@ const bankMapping = {
   'VietCapitalBank': '970454',
   'VCCB': '970454',
   'Ban Viet': '970454',
+  'BVBank': '970454',
   
   // Ngân hàng TMCP Sài Gòn
   'SCB': '970429',

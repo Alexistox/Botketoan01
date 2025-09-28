@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const BUTTONS2_PATH = path.join(__dirname, '../config/inline_buttons2.json');
 const UsdtMedia = require('../models/UsdtMedia');
+const usdtMediaHandler = require('../utils/usdtMediaHandler');
 
 function readButtons2() {
   if (!fs.existsSync(BUTTONS2_PATH)) return [];
@@ -524,38 +525,28 @@ const handleSetUsdtAddressCommand = async (bot, msg) => {
     let fileUniqueId = null;
 
     // Ưu tiên media + caption
-    if ((msg.photo || msg.video || msg.animation || msg.sticker) && msg.caption) {
+    if (usdtMediaHandler.hasMedia(msg) && msg.caption) {
       address = msg.caption.trim();
       if (!isTrc20Address(address)) {
         bot.sendMessage(chatId, "❌ TRC20地址无效！地址必须以字母T开头并且有34个字符。");
         return;
       }
-      if (msg.photo) {
-        mediaType = 'photo';
-        const lastPhoto = msg.photo[msg.photo.length - 1];
-        fileId = lastPhoto.file_id;
-        fileUniqueId = lastPhoto.file_unique_id;
-      } else if (msg.video) {
-        mediaType = 'video';
-        fileId = msg.video.file_id;
-        fileUniqueId = msg.video.file_unique_id;
-      } else if (msg.animation) {
-        mediaType = 'animation';
-        fileId = msg.animation.file_id;
-        fileUniqueId = msg.animation.file_unique_id;
-      } else if (msg.sticker) {
-        mediaType = 'sticker';
-        fileId = msg.sticker.file_id;
-        fileUniqueId = msg.sticker.file_unique_id;
+      
+      // Xử lý media files
+      const mediaFiles = usdtMediaHandler.processMediaFromMessage(msg);
+      
+      // Lưu vào UsdtMediaHandler (không bắt lỗi)
+      try {
+        await usdtMediaHandler.saveUsdtMedia(
+          chatId, 
+          address, 
+          mediaFiles, 
+          userId.toString(), 
+          msg.from.first_name || msg.from.username || 'Unknown'
+        );
+      } catch (error) {
+        console.log('UsdtMediaHandler save failed, using Config only');
       }
-      // Lưu vào UsdtMedia
-      await UsdtMedia.create({
-        address,
-        mediaType,
-        fileId,
-        fileUniqueId,
-        ownerId: userId
-      });
       // Lưu vào Config (giữ logic cũ)
       let config = await Config.findOne({ key: 'USDT_ADDRESS' });
       if (!config) {
@@ -564,7 +555,7 @@ const handleSetUsdtAddressCommand = async (bot, msg) => {
         config.value = address;
       }
       await config.save();
-      bot.sendMessage(chatId, `✅ 保存成功 (${mediaType})!`);
+      bot.sendMessage(chatId, `✅ 保存成功!`);
       return;
     }
 
@@ -577,31 +568,21 @@ const handleSetUsdtAddressCommand = async (bot, msg) => {
           bot.sendMessage(chatId, "❌ TRC20地址无效！地址必须以字母T开头并且有34个字符。");
           return;
         }
-        if (msg.reply_to_message.photo) {
-          mediaType = 'photo';
-          const lastPhoto = msg.reply_to_message.photo[msg.reply_to_message.photo.length - 1];
-          fileId = lastPhoto.file_id;
-          fileUniqueId = lastPhoto.file_unique_id;
-        } else if (msg.reply_to_message.video) {
-          mediaType = 'video';
-          fileId = msg.reply_to_message.video.file_id;
-          fileUniqueId = msg.reply_to_message.video.file_unique_id;
-        } else if (msg.reply_to_message.animation) {
-          mediaType = 'animation';
-          fileId = msg.reply_to_message.animation.file_id;
-          fileUniqueId = msg.reply_to_message.animation.file_unique_id;
-        } else if (msg.reply_to_message.sticker) {
-          mediaType = 'sticker';
-          fileId = msg.reply_to_message.sticker.file_id;
-          fileUniqueId = msg.reply_to_message.sticker.file_unique_id;
+        // Xử lý media files từ reply message
+        const mediaFiles = usdtMediaHandler.processMediaFromMessage(msg.reply_to_message);
+        
+        // Lưu vào UsdtMediaHandler (không bắt lỗi)
+        try {
+          await usdtMediaHandler.saveUsdtMedia(
+            chatId, 
+            address, 
+            mediaFiles, 
+            userId.toString(), 
+            msg.from.first_name || msg.from.username || 'Unknown'
+          );
+        } catch (error) {
+          console.log('UsdtMediaHandler save failed, using Config only');
         }
-        await UsdtMedia.create({
-          address,
-          mediaType,
-          fileId,
-          fileUniqueId,
-          ownerId: userId
-        });
         // Lưu vào Config (giữ logic cũ)
         let config = await Config.findOne({ key: 'USDT_ADDRESS' });
         if (!config) {
@@ -610,7 +591,7 @@ const handleSetUsdtAddressCommand = async (bot, msg) => {
           config.value = address;
         }
         await config.save();
-        bot.sendMessage(chatId, `✅ 保存成功 (${mediaType})!`);
+        bot.sendMessage(chatId, `✅ 保存成功!`);
         return;
       }
     }
@@ -627,6 +608,19 @@ const handleSetUsdtAddressCommand = async (bot, msg) => {
       bot.sendMessage(chatId, "❌ TRC20地址无效！地址必须以字母T开头并且有34个字符。");
       return;
     }
+    // Lưu vào UsdtMediaHandler (không có media files)
+    try {
+      await usdtMediaHandler.saveUsdtMedia(
+        chatId, 
+        address, 
+        [], // Không có media files
+        userId.toString(), 
+        msg.from.first_name || msg.from.username || 'Unknown'
+      );
+    } catch (error) {
+      console.log('UsdtMediaHandler save failed, using Config only');
+    }
+    
     // Lưu vào Config (giữ logic cũ)
     let config = await Config.findOne({ key: 'USDT_ADDRESS' });
     const oldAddress = config ? config.value : null;
@@ -653,15 +647,45 @@ const handleSetUsdtAddressCommand = async (bot, msg) => {
 const handleGetUsdtAddressCommand = async (bot, msg) => {
   try {
     const chatId = msg.chat.id;
-    // Tìm địa chỉ USDT
-    const config = await Config.findOne({ key: 'USDT_ADDRESS' });
-    if (!config || !config.value) {
+    
+    // Lấy USDT media từ UsdtMediaHandler
+    let usdtMedia = null;
+    let address = null;
+    
+    try {
+      usdtMedia = await usdtMediaHandler.getUsdtMedia(chatId);
+      if (usdtMedia && usdtMedia.usdtAddress) {
+        address = usdtMedia.usdtAddress;
+      }
+    } catch (error) {
+      console.log('UsdtMediaHandler get failed, trying Config');
+    }
+    
+    // Fallback to Config if UsdtMediaHandler fails
+    if (!address) {
+      const config = await Config.findOne({ key: 'USDT_ADDRESS' });
+      if (config && config.value) {
+        address = config.value;
+      }
+    }
+    
+    if (!address) {
       bot.sendMessage(chatId, "⚠️ 尚未设置USDT-TRC20地址。请使用 /usdt 命令设置。");
       return;
     }
-    const address = config.value;
-    // Tìm media mới nhất cho địa chỉ này
-    const media = await UsdtMedia.findOne({ address }).sort({ createdAt: -1 });
+    
+    // Nếu có media files, gửi media group
+    if (usdtMedia.mediaFiles && usdtMedia.mediaFiles.length > 0) {
+      try {
+        await usdtMediaHandler.sendUsdtMedia(bot, chatId, usdtMedia);
+        return;
+      } catch (error) {
+        console.error('Error sending USDT media:', error);
+        // Fallback to text if media fails
+      }
+    }
+    
+    // Fallback: Gửi text nếu không có media hoặc media lỗi
     // Tạo lưu ý về 6 ký tự đầu, giữa, cuối (tiếng Trung, ngắn gọn)
     let note = '';
     if (address.length === 34) {
@@ -670,33 +694,13 @@ const handleGetUsdtAddressCommand = async (bot, msg) => {
       const last6 = address.slice(-6);
       note = `\n首6: \`${first6}\`  中6: \`${mid6}\`  末6: \`${last6}\``;
     }
-    // Danh sách xác nhận (nếu có, tiếng Trung, ngắn gọn)
-    let confirmNote = '';
-    if (media && media.confirmedBy && media.confirmedBy.length > 0) {
-      confirmNote = '\n确认人: ' + media.confirmedBy.map(u => `@${u.username}${u.fullName ? `(${u.fullName})` : ''}`).join(', ');
-    }
     // Nhắc nhở ngắn gọn
     const remind = '\n请务必核对地址片段，防止转错！';
     // Caption tiếng Trung, ngắn gọn
-    const caption = `USDT地址: \n\n\`${address}\`\n\n${note}${confirmNote}${remind}`;
-    if (media) {
-      // Gửi lại media đúng loại
-      if (media.mediaType === 'photo') {
-        await bot.sendPhoto(chatId, media.fileId, { caption, parse_mode: 'Markdown' });
-      } else if (media.mediaType === 'video') {
-        await bot.sendVideo(chatId, media.fileId, { caption, parse_mode: 'Markdown' });
-      } else if (media.mediaType === 'animation') {
-        await bot.sendAnimation(chatId, media.fileId, { caption, parse_mode: 'Markdown' });
-      } else if (media.mediaType === 'sticker') {
-        await bot.sendSticker(chatId, media.fileId);
-        await bot.sendMessage(chatId, caption, { parse_mode: 'Markdown' });
-      } else {
-        await bot.sendMessage(chatId, caption, { parse_mode: 'Markdown' });
-      }
-    } else {
-      // Không có media, gửi text như cũ
-      await bot.sendMessage(chatId, caption, { parse_mode: 'Markdown' });
-    }
+    const caption = `USDT地址: \n\n\`${address}\`\n\n${note}${remind}`;
+    
+    // Gửi text nếu không có media
+    await bot.sendMessage(chatId, caption, { parse_mode: 'Markdown' });
   } catch (error) {
     console.error('Error in handleGetUsdtAddressCommand:', error);
     bot.sendMessage(msg.chat.id, "处理获取USDT地址命令时出错。请稍后再试。");

@@ -10,6 +10,7 @@ const {
   formatTelegramMessage
 } = require('../utils/formatter');
 const { isUserOwner, isUserAdmin, isUserOperator } = require('../utils/permissions');
+const userTracker = require('../utils/userTracker');
 
 const Group = require('../models/Group');
 const Transaction = require('../models/Transaction');
@@ -63,6 +64,13 @@ const handleMessage = async (bot, msg, cache) => {
     const lastName = msg.from.last_name || '';
     const timestamp = new Date();
     const messageText = msg.text || '';
+    
+    // Kiểm tra và cập nhật thông tin user nếu có thay đổi
+    const userChangeResult = await userTracker.checkAndUpdateUser(bot, msg);
+    if (userChangeResult && userChangeResult.hasChanged) {
+      // Gửi thông báo thay đổi vào nhóm
+      await bot.sendMessage(chatId, userChangeResult.message, { parse_mode: 'Markdown' });
+    }
     
     // Nếu người dùng gửi '开始', chuyển thành '/st' để dùng chung logic
     if (messageText === '开始') {

@@ -686,7 +686,7 @@ const recalculateGroupTotals = async (group) => {
       timestamp: { $gt: lastClearDate },
       skipped: { $ne: true },
       type: { $in: ['deposit', 'withdraw', 'payment'] }
-    }).sort({ timestamp: 1 });
+    }).sort({ timestamp: -1 });
     
     // Reset all totals
     group.totalVND = 0;
@@ -743,7 +743,7 @@ const recalculateCardTotals = async (chatId) => {
       skipped: { $ne: true },
       type: { $in: ['deposit', 'withdraw', 'payment'] },
       cardCode: { $ne: '' }
-    }).sort({ timestamp: 1 });
+    }).sort({ timestamp: -1 });
     
     // Get all cards for this chat
     const cards = await Card.find({ chatId });
@@ -844,7 +844,7 @@ const handleSkipCommand = async (bot, msg) => {
         type: 'payment',
         timestamp: { $gt: lastClearDate },
         skipped: { $ne: true }
-      }).sort({ timestamp: 1 });
+      }).sort({ timestamp: -1 });
     } else {
       // Lấy các giao dịch deposit và withdraw
       transactions = await Transaction.find({
@@ -852,7 +852,7 @@ const handleSkipCommand = async (bot, msg) => {
         type: { $in: ['deposit', 'withdraw'] },
         timestamp: { $gt: lastClearDate },
         skipped: { $ne: true }
-      }).sort({ timestamp: 1 });
+      }).sort({ timestamp: -1 });
     }
     
     // Kiểm tra xem ID có hợp lệ không
@@ -861,8 +861,8 @@ const handleSkipCommand = async (bot, msg) => {
       return;
     }
     
-    // Lấy giao dịch cần skip - vì ID là số thứ tự trong mảng (bắt đầu từ 1), nên cần trừ 1
-    const transaction = transactions[id - 1];
+    // Lấy giao dịch cần skip - với ID mới (mới nhất = length), cần tính index ngược lại
+    const transaction = transactions[transactions.length - id];
     
     // Đánh dấu giao dịch là đã skip
     transaction.skipped = true;
