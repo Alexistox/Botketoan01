@@ -49,7 +49,7 @@ const formatNumberWithCommas = (num) => {
 /**
  * Định dạng giá trị tỷ lệ (rate)
  * @param {Number} num - Số cần định dạng
- * @returns {String} - Chuỗi đã định dạng
+ * @returns {String} - Chuỗi đã định dạng với dấu chấm thập phân
  */
 const formatRateValue = (num) => {
   // Đảm bảo num là số
@@ -63,7 +63,7 @@ const formatRateValue = (num) => {
     return num.toString();
   }
   
-  // Nếu là số thập phân, loại bỏ các số 0 ở cuối
+  // Nếu là số thập phân, đảm bảo sử dụng dấu chấm và loại bỏ các số 0 ở cuối
   return num.toString().replace(/\.?0+$/, '');
 };
 
@@ -73,8 +73,8 @@ const formatRateValue = (num) => {
  * @returns {Boolean} - true nếu là biểu thức toán học
  */
 const isMathExpression = (msg) => {
-  // Hỗ trợ số đặc biệt: m, k, w, 万, y, 个亿
-  const mathRegex = /^[0-9+\-*/().\s万个亿mkwy]+$/;
+  // Hỗ trợ số đặc biệt: m, k, w, 万, y, 个亿 và dấu phẩy/phân cách thập phân
+  const mathRegex = /^[0-9+\-*/(),.\s万个亿mkwy]+$/;
   return mathRegex.test(msg);
 };
 
@@ -159,8 +159,8 @@ const normalizeNumberFormat = (str) => {
     // Nếu sau dấu chấm có <= 3 chữ số và toàn bộ là số, có thể là thập phân
     if (afterDot.length <= 3 && /^\d+$/.test(afterDot)) {
       const beforeDot = str.substring(0, dotPos);
-      // Nếu số trước dấu chấm >= 4 chữ số, có thể là phân cách hàng nghìn
-      if (beforeDot.length >= 4) {
+      // Nếu số trước dấu chấm >= 4 chữ số VÀ sau dấu chấm có đúng 3 chữ số, có thể là phân cách hàng nghìn
+      if (beforeDot.length >= 4 && afterDot.length === 3) {
         return str.replace(/\./g, '');
       }
       // Ngược lại, giữ nguyên như thập phân

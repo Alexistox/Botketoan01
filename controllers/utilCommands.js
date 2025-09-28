@@ -328,6 +328,17 @@ const handleHelpCommand = async (bot, chatId) => {
 /hiddenCards - 查看所有隐藏卡
 
 -------------------------
+*QR码生成:*
+/qr on - 开启QR码生成模式
+/qr off - 关闭QR码生成模式
+发送银行信息格式:
+账号
+持卡人姓名
+银行名称
+金额
+备注（可选）
+
+-------------------------
 *自定义按钮:*
 /inline [按钮]|[命令] - 添加按钮
 /removeinline [按钮] - 删除按钮

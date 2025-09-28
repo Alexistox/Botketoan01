@@ -68,16 +68,12 @@ const handleClearCommand = async (bot, msg) => {
     // Chỉ hiển thị thông báo đơn giản về tỷ giá
     let simpleMessage = `上课！`;
     
-    if (currentRate > 0 && currentExRate > 0) {
-      simpleMessage += `\n 当前费率: ${formatRateValue(currentRate)}% | 汇率: ${formatRateValue(currentExRate)}`;
+    if (currentRate !== null && currentExRate !== null) {
+      simpleMessage += `收款费率: ${formatRateValue(currentRate)}% | 汇率: ${formatRateValue(currentExRate)}`;
       
       if (hasWithdrawRate) {
-        simpleMessage += `\n 出款费率: ${formatRateValue(group.withdrawRate)}% | 汇率: ${formatRateValue(group.withdrawExchangeRate)}`;
+        simpleMessage += `出款费率: ${formatRateValue(group.withdrawRate)}% | 汇率: ${formatRateValue(group.withdrawExchangeRate)}`;
       }
-    } else if (currentRate > 0 || currentExRate > 0) {
-      simpleMessage += `\n⚠️ 请设置完整的费率和汇率`;
-    } else {
-      simpleMessage += `\n⚠️ 请先设置费率和汇率`;
     }
     
     bot.sendMessage(msg.chat.id, simpleMessage);

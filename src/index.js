@@ -135,6 +135,20 @@ bot.on('photo', async (msg) => {
 
       await handleBankImage(msg, bot);
     }
+    // Xử lý lệnh + từ caption của ảnh
+    else if (msg.caption && msg.caption.startsWith('+')) {
+      const chatId = msg.chat.id;
+      const username = msg.from.username;
+      
+      if (!await isUsernameAllowed(username)) {
+        await bot.sendMessage(chatId, "您没有权限使用此命令。");
+        return;
+      }
+
+      // Tạo tin nhắn giả với text từ caption để xử lý như lệnh + bình thường
+      const modifiedMsg = { ...msg, text: msg.caption };
+      await handleTransaction(modifiedMsg, bot);
+    }
   } catch (error) {
     console.error('Error handling photo with caption:', error);
     await bot.sendMessage(msg.chat.id, "处理图片时出错，请重试。");

@@ -41,6 +41,11 @@ const {
   handleReport1Command
 } = require('./reportCommands');
 
+const {
+  handleQrToggleCommand,
+  handleQrMessage
+} = require('./qrCommands');
+
 // Hàm xử lý tin nhắn chính
 const handleMessage = async (bot, msg, cache) => {
   try {
@@ -79,6 +84,19 @@ const handleMessage = async (bot, msg, cache) => {
     if (msg.photo) {
       if (msg.caption && msg.caption === ('/c')) {
         await handleImageBankInfo(bot, msg);
+        return;
+      }
+      
+      // Xử lý lệnh + từ caption của ảnh
+      if (msg.caption && msg.caption.startsWith('+')) {
+        // Kiểm tra quyền Operator
+        if (await isUserOperator(userId, chatId)) {
+          // Tạo tin nhắn giả với text từ caption để xử lý như lệnh + bình thường
+          const modifiedMsg = { ...msg, text: msg.caption };
+          await handlePlusCommand(bot, modifiedMsg);
+        } else {
+          bot.sendMessage(chatId, " ");
+        }
         return;
       }
     }
@@ -426,6 +444,16 @@ const handleMessage = async (bot, msg, cache) => {
         return;
       }
       
+      if (messageText.startsWith('/qr ')) {
+        // Kiểm tra quyền Operator
+        if (await isUserOperator(userId, chatId)) {
+          await handleQrToggleCommand(bot, msg);
+        } else {
+          bot.sendMessage(chatId, " ");
+        }
+        return;
+      }
+      
       if (messageText.startsWith('/x ')) {
         // Kiểm tra quyền Operator
         if (await isUserOperator(userId, chatId)) {
@@ -701,6 +729,14 @@ const handleMessage = async (bot, msg, cache) => {
     if (msg.reply_to_message && (msg.reply_to_message.photo || msg.reply_to_message.video || msg.reply_to_message.animation || msg.reply_to_message.sticker) && msg.text && msg.text.startsWith('/usdt ')) {
       await handleSetUsdtAddressCommand(bot, msg);
       return;
+    }
+    
+    // Xử lý tin nhắn QR (nếu QR mode được bật)
+    if (messageText && !messageText.startsWith('/') && !messageText.startsWith('+') && !messageText.startsWith('-')) {
+      const qrHandled = await handleQrMessage(bot, msg);
+      if (qrHandled) {
+        return;
+      }
     }
   } catch (error) {
     console.error('Error in handleMessage:', error);

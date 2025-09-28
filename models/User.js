@@ -248,6 +248,7 @@ const commandPermissions = {
   '/sx': 'operator',
   '/delete': 'operator',
   '/d': 'operator',
+  '/qr': 'operator',
   '/hiddenCards': 'operator',
   '/m': 'operator',
   
