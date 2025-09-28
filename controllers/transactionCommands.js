@@ -147,10 +147,11 @@ const handlePlusCommand = async (bot, msg) => {
     
     // Tạo chi tiết giao dịch
     let details;
+    const rateDisplay = rateFactor === '1.00' ? '/' : `\\*${rateFactor}/`;
     if (cardCode) {
-      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*\\*${rateFactor}/${yValue} = ${formatSmart(newUSDT, userFormat)} (${cardCode}) \`${senderName}\``;
+      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} (${cardCode}) \`${senderName}\``;
     } else {
-      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*\\*${rateFactor}/${yValue} = ${formatSmart(newUSDT, userFormat)} \`${senderName}\``;
+      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} \`${senderName}\``;
     }
     
     // Lưu giao dịch mới
@@ -363,10 +364,11 @@ const handleMinusCommand = async (bot, msg) => {
     // Tạo chi tiết giao dịch
     let details;
     const operator = useWithdrawRate ? '+' : '-';
+    const rateDisplay = rateFactor === '1.00' ? '/' : `\\*${rateFactor}/`;
     if (cardCode) {
-      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*\\*${rateFactor}/${yValue} = ${formatSmart(minusUSDT, userFormat)} (${cardCode}) \`${senderName}\``;
+      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} (${cardCode}) \`${senderName}\``;
     } else {
-      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*\\*${rateFactor}/${yValue} = ${formatSmart(minusUSDT, userFormat)} \`${senderName}\``;
+      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} \`${senderName}\``;
     }
     // Lưu giao dịch mới
     const transaction = new Transaction({
