@@ -80,12 +80,45 @@ const isMathExpression = (msg) => {
 
 /**
  * Kiểm tra xem chuỗi có phải là một số đơn giản không
+ * Bao gồm cả các số với ký hiệu đặc biệt như 12w, 545w, 1m, 2k, 3万, 1个亿, 1y
  * @param {String} msg - Chuỗi cần kiểm tra
- * @returns {Boolean} - true nếu là số đơn giản
+ * @returns {Boolean} - true nếu là số đơn giản (không cần tính toán)
  */
 const isSingleNumber = (msg) => {
-  const numberRegex = /^-?\d+(\.\d+)?$/;
-  return numberRegex.test(msg.trim());
+  const trimmedMsg = msg.trim();
+  
+  // Kiểm tra số thông thường (123, 123.45, -123.45)
+  const regularNumberRegex = /^-?\d+(\.\d+)?$/;
+  if (regularNumberRegex.test(trimmedMsg)) {
+    return true;
+  }
+  
+  // Kiểm tra số với ký hiệu đặc biệt đơn giản (không có phép toán)
+  // Các pattern: 12w, 545w, 1m, 2k, 3万, 1个亿, 1y, 12w5, 1m2, 3万4, etc.
+  const specialNumberRegex = /^-?\d*\.?\d*[mkwy万个亿]$/;
+  if (specialNumberRegex.test(trimmedMsg)) {
+    return true;
+  }
+  
+  // Kiểm tra số với 个亿 đơn giản
+  const yiNumberRegex = /^-?\d*\.?\d*个亿$/;
+  if (yiNumberRegex.test(trimmedMsg)) {
+    return true;
+  }
+  
+  // Kiểm tra số ghép đơn giản (12w5, 1m2, 3万4, 1个亿2, 1y3)
+  const compoundNumberRegex = /^-?\d+[mkwy万个亿]\d+$/;
+  if (compoundNumberRegex.test(trimmedMsg)) {
+    return true;
+  }
+  
+  // Kiểm tra số ghép với 个亿 (1个亿2, 2个亿5)
+  const yiCompoundRegex = /^-?\d+个亿\d+$/;
+  if (yiCompoundRegex.test(trimmedMsg)) {
+    return true;
+  }
+  
+  return false;
 };
 
 /**
@@ -106,6 +139,10 @@ const isValidNumber = (msg) => {
 
 /**
  * Chuẩn hóa định dạng số với các dấu phân cách khác nhau
+ * Hỗ trợ các định dạng số của các nước khác nhau:
+ * - US: 1,234,567.89 (dấu phẩy phân cách hàng nghìn, dấu chấm thập phân)
+ * - EU: 1.234.567,89 (dấu chấm phân cách hàng nghìn, dấu phẩy thập phân)
+ * - Mixed: 2,765,566+3.454.635 (hỗn hợp trong cùng một biểu thức)
  * @param {String} str - Chuỗi số cần chuẩn hóa
  * @returns {String} - Chuỗi số đã được chuẩn hóa
  */
@@ -121,13 +158,14 @@ const normalizeNumberFormat = (str) => {
   
   // Logic xử lý dựa trên số lượng dấu phân cách
   
-  // Trường hợp 1: Chỉ có dấu phẩy - loại bỏ làm phân cách hàng nghìn
+  // Trường hợp 1: Chỉ có dấu phẩy
   if (commaCount > 0 && dotCount === 0) {
-    // Nếu có nhiều dấu phẩy, chắc chắn là phân cách hàng nghìn
+    // Nếu có nhiều dấu phẩy, chắc chắn là phân cách hàng nghìn (US format)
     if (commaCount > 1) {
       return str.replace(/,/g, '');
     }
-    // Nếu chỉ có 1 dấu phẩy, kiểm tra vị trí
+    
+    // Nếu chỉ có 1 dấu phẩy, kiểm tra vị trí và context
     const commaPos = str.lastIndexOf(',');
     const afterComma = str.substring(commaPos + 1);
     const beforeComma = str.substring(0, commaPos);
@@ -137,7 +175,7 @@ const normalizeNumberFormat = (str) => {
       return str.replace(/,/g, '');
     }
     
-    // Nếu sau dấu phẩy có 1-2 chữ số, thường là thập phân (cents)
+    // Nếu sau dấu phẩy có 1-2 chữ số, thường là thập phân (EU format)
     if (afterComma.length <= 2 && /^\d+$/.test(afterComma) && beforeComma.length >= 1) {
       // Chuyển thành dấu chấm cho thập phân
       return str.replace(',', '.');
@@ -149,38 +187,40 @@ const normalizeNumberFormat = (str) => {
   
   // Trường hợp 2: Chỉ có dấu chấm
   if (dotCount > 0 && commaCount === 0) {
-    // Nếu có nhiều dấu chấm, chắc chắn là phân cách hàng nghìn
+    // Nếu có nhiều dấu chấm, chắc chắn là phân cách hàng nghìn (EU format)
     if (dotCount > 1) {
       return str.replace(/\./g, '');
     }
-    // Nếu chỉ có 1 dấu chấm, kiểm tra vị trí
+    
+    // Nếu chỉ có 1 dấu chấm, kiểm tra vị trí và context
     const dotPos = str.lastIndexOf('.');
     const afterDot = str.substring(dotPos + 1);
+    const beforeDot = str.substring(0, dotPos);
+    
     // Nếu sau dấu chấm có <= 3 chữ số và toàn bộ là số, có thể là thập phân
     if (afterDot.length <= 3 && /^\d+$/.test(afterDot)) {
-      const beforeDot = str.substring(0, dotPos);
       // Nếu số trước dấu chấm >= 4 chữ số VÀ sau dấu chấm có đúng 3 chữ số, có thể là phân cách hàng nghìn
       if (beforeDot.length >= 4 && afterDot.length === 3) {
         return str.replace(/\./g, '');
       }
-      // Ngược lại, giữ nguyên như thập phân
+      // Ngược lại, giữ nguyên như thập phân (US format)
       return str;
     }
     // Các trường hợp khác, loại bỏ dấu chấm
     return str.replace(/\./g, '');
   }
   
-  // Trường hợp 3: Có cả dấu chấm và phẩy
+  // Trường hợp 3: Có cả dấu chấm và phẩy (Mixed format)
   if (commaCount > 0 && dotCount > 0) {
     const lastComma = str.lastIndexOf(',');
     const lastDot = str.lastIndexOf('.');
     
     // Dấu nào xuất hiện sau cùng là dấu thập phân
     if (lastComma > lastDot) {
-      // Dấu phẩy là thập phân, dấu chấm là phân cách hàng nghìn
+      // Dấu phẩy là thập phân (EU format), dấu chấm là phân cách hàng nghìn
       return str.replace(/\./g, '').replace(',', '.');
     } else {
-      // Dấu chấm là thập phân, dấu phẩy là phân cách hàng nghìn
+      // Dấu chấm là thập phân (US format), dấu phẩy là phân cách hàng nghìn
       return str.replace(/,/g, '');
     }
   }
@@ -473,6 +513,7 @@ const parseSpecialNumber = (input) => {
 
 /**
  * Evaluate biểu thức toán học với các định dạng số đặc biệt
+ * Hỗ trợ các định dạng số của các nước khác nhau trong cùng một biểu thức
  * @param {String} expr - Biểu thức cần tính
  * @returns {Number} - Kết quả tính toán
  */
@@ -593,8 +634,25 @@ const evaluateSpecialExpression = (expr) => {
   });
   
   // Chuẩn hóa định dạng số trước khi eval
-  // Tách và xử lý từng số trong biểu thức
+  // Tách và xử lý từng số trong biểu thức với regex cải tiến
+  // Tìm tất cả các số có dấu phân cách (có thể là hàng nghìn hoặc thập phân)
+  // Xử lý các số phức tạp trước (có nhiều dấu phân cách)
   processedExpr = processedExpr.replace(/(\d+[.,]\d+(?:[.,]\d+)*)/g, (match) => {
+    return normalizeNumberFormat(match);
+  });
+  
+  // Xử lý các số đơn lẻ có dấu phân cách (trường hợp đặc biệt)
+  // Ví dụ: 1,234 hoặc 1.234 (có thể là 1234 hoặc 1.234)
+  processedExpr = processedExpr.replace(/(\d+[.,]\d+)/g, (match) => {
+    // Nếu chưa được xử lý bởi normalizeNumberFormat, xử lý lại
+    if (match.includes(',') || match.includes('.')) {
+      return normalizeNumberFormat(match);
+    }
+    return match;
+  });
+  
+  // Xử lý các số đơn giản có dấu phân cách (chỉ có 1 dấu)
+  processedExpr = processedExpr.replace(/(\d+[.,]\d+)/g, (match) => {
     return normalizeNumberFormat(match);
   });
   
@@ -763,7 +821,7 @@ const formatWithdrawRateMessage = (jsonData, numberFormat = 'default') => {
   // Date header - using US format (MM/DD/YYYY)
   const currentDate = new Date();
   const formattedDate = formatDateUS(currentDate);
-  output += `*${formattedDate}:*\n`;
+  output += `*${formattedDate}*\n`;
   
   // Deposits section
   if (jsonData.depositData && jsonData.depositData.entries && jsonData.depositData.entries.length > 0) {
@@ -843,6 +901,7 @@ module.exports = {
   isMathExpression,
   isSingleNumber,
   isValidNumber,
+  normalizeNumberFormat,
   parseSpecialNumber,
   evaluateSpecialExpression,
   isTrc20Address,
