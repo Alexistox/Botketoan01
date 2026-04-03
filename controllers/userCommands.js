@@ -524,9 +524,26 @@ const handleSetUsdtAddressCommand = async (bot, msg) => {
     let fileId = null;
     let fileUniqueId = null;
 
-    // Ưu tiên media + caption
+    const extractTrc20FromRaw = (raw) => {
+      if (!raw) return null;
+      const text = String(raw).trim();
+      const direct = text.replace(/^\/usdt\s*/i, '').trim();
+      if (isTrc20Address(direct)) return direct;
+      const m = text.match(/T[A-Za-z0-9]{33}/);
+      return m ? m[0] : null;
+    };
+
+    // Ưu tiên media + caption:
+    // - caption có thể là địa chỉ trực tiếp
+    // - hoặc "/usdt <địa chỉ>"
+    // - hoặc chỉ "/usdt" và reply vào tin có chứa địa chỉ
     if (usdtMediaHandler.hasMedia(msg) && msg.caption) {
-      address = msg.caption.trim();
+      address = extractTrc20FromRaw(msg.caption);
+      if (!address && msg.reply_to_message) {
+        address =
+          extractTrc20FromRaw(msg.reply_to_message.text) ||
+          extractTrc20FromRaw(msg.reply_to_message.caption);
+      }
       if (!isTrc20Address(address)) {
         bot.sendMessage(chatId, "❌ TRC20地址无效！地址必须以字母T开头并且有34个字符。");
         return;
@@ -563,7 +580,7 @@ const handleSetUsdtAddressCommand = async (bot, msg) => {
     if (msg.reply_to_message && (msg.reply_to_message.photo || msg.reply_to_message.video || msg.reply_to_message.animation || msg.reply_to_message.sticker)) {
       const parts = msg.text.split('/usdt ');
       if (parts.length === 2) {
-        address = parts[1].trim();
+        address = extractTrc20FromRaw(parts[1].trim());
         if (!isTrc20Address(address)) {
           bot.sendMessage(chatId, "❌ TRC20地址无效！地址必须以字母T开头并且有34个字符。");
           return;
@@ -603,17 +620,22 @@ const handleSetUsdtAddressCommand = async (bot, msg) => {
       bot.sendMessage(chatId, "ℹ️ 语法: /usdt <TRC20地址>");
       return;
     }
-    address = parts[1].trim();
+    address = extractTrc20FromRaw(parts[1].trim());
     if (!isTrc20Address(address)) {
       bot.sendMessage(chatId, "❌ TRC20地址无效！地址必须以字母T开头并且有34个字符。");
       return;
     }
-    // Lưu vào UsdtMediaHandler (không có media files)
+    // Lưu vào UsdtMediaHandler:
+    // Nếu cập nhật bằng text, giữ lại media cũ (nếu có) để /u vẫn gửi ảnh/video/gif.
     try {
+      const currentUsdtMedia = await usdtMediaHandler.getUsdtMedia(chatId);
+      const preservedMedia = (currentUsdtMedia && Array.isArray(currentUsdtMedia.mediaFiles))
+        ? currentUsdtMedia.mediaFiles
+        : [];
       await usdtMediaHandler.saveUsdtMedia(
         chatId, 
         address, 
-        [], // Không có media files
+        preservedMedia,
         userId.toString(), 
         msg.from.first_name || msg.from.username || 'Unknown'
       );
@@ -674,8 +696,8 @@ const handleGetUsdtAddressCommand = async (bot, msg) => {
       return;
     }
     
-    // Nếu có media files, gửi media group
-    if (usdtMedia.mediaFiles && usdtMedia.mediaFiles.length > 0) {
+    // Nếu có media files, gửi media (usdtMedia có thể null khi chỉ có Config)
+    if (usdtMedia && usdtMedia.mediaFiles && usdtMedia.mediaFiles.length > 0) {
       try {
         await usdtMediaHandler.sendUsdtMedia(bot, chatId, usdtMedia);
         return;
@@ -685,22 +707,13 @@ const handleGetUsdtAddressCommand = async (bot, msg) => {
       }
     }
     
-    // Fallback: Gửi text nếu không có media hoặc media lỗi
-    // Tạo lưu ý về 6 ký tự đầu, giữa, cuối (tiếng Trung, ngắn gọn)
-    let note = '';
-    if (address.length === 34) {
-      const first6 = address.slice(0, 6);
-      const mid6 = address.slice(14, 20);
-      const last6 = address.slice(-6);
-      note = `\n首6: \`${first6}\`  中6: \`${mid6}\`  末6: \`${last6}\``;
-    }
-    // Nhắc nhở ngắn gọn
+    // Fallback: gửi plain text (tránh lỗi parse Markdown với ký tự đặc biệt trong địa chỉ)
     const remind = '\n请务必核对地址片段，防止转错！';
-    // Caption tiếng Trung, ngắn gọn
-    const caption = `USDT地址: \n\n\`${address}\`\n\n${note}${remind}`;
-    
-    // Gửi text nếu không có media
-    await bot.sendMessage(chatId, caption, { parse_mode: 'Markdown' });
+    let extra = '';
+    if (address.length === 34) {
+      extra = `\n\n首6: ${address.slice(0, 6)}  中6: ${address.slice(14, 20)}  末6: ${address.slice(-6)}`;
+    }
+    await bot.sendMessage(chatId, `USDT地址:\n\n<code>${address}</code>${extra}${remind}`, { parse_mode: 'HTML' });
   } catch (error) {
     console.error('Error in handleGetUsdtAddressCommand:', error);
     bot.sendMessage(msg.chat.id, "处理获取USDT地址命令时出错。请稍后再试。");

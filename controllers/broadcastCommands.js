@@ -207,6 +207,19 @@ const handleBroadcastCmlist = async (bot, msg) => {
     return `• ${row.code}: chat ${row.fromChatId}, msg ${row.messageId}${time ? ` (${time})` : ''}`;
   });
   await sendTelegramChunks(bot, msg.chat.id, lines.join('\n'));
+
+  // Gửi đầy đủ nội dung từng tin đã lưu để xem trực tiếp.
+  for (const row of list) {
+    await bot.sendMessage(msg.chat.id, `Nội dung mã "${row.code}":`);
+    try {
+      await bot.copyMessage(msg.chat.id, row.fromChatId, row.messageId);
+    } catch (e) {
+      await bot.sendMessage(
+        msg.chat.id,
+        `Không thể tải nội dung mã "${row.code}" (${row.fromChatId}/${row.messageId}): ${e.message || e}`
+      );
+    }
+  }
 };
 
 /**

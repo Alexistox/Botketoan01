@@ -1,4 +1,12 @@
 const UsdtMedia = require('../models/UsdtMedia');
+const GLOBAL_USDT_SCOPE = 'GLOBAL';
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 
 /**
  * Xử lý lưu trữ và hiển thị media cho USDT
@@ -9,9 +17,9 @@ class UsdtMediaHandler {
    */
   async saveUsdtMedia(chatId, usdtAddress, mediaFiles, senderId, senderName) {
     try {
-      // Tìm USDT media hiện tại của chat
+      // Lưu global cho toàn bộ bot (không theo từng nhóm)
       let usdtMedia = await UsdtMedia.findOne({ 
-        chatId: chatId.toString(), 
+        chatId: GLOBAL_USDT_SCOPE,
         isActive: true 
       });
 
@@ -25,7 +33,7 @@ class UsdtMediaHandler {
       } else {
         // Tạo mới
         usdtMedia = new UsdtMedia({
-          chatId: chatId.toString(),
+          chatId: GLOBAL_USDT_SCOPE,
           usdtAddress: usdtAddress,
           mediaFiles: mediaFiles,
           senderId: senderId,
@@ -46,10 +54,18 @@ class UsdtMediaHandler {
    */
   async getUsdtMedia(chatId) {
     try {
-      const usdtMedia = await UsdtMedia.findOne({ 
-        chatId: chatId.toString(), 
+      // Ưu tiên bản global
+      let usdtMedia = await UsdtMedia.findOne({
+        chatId: GLOBAL_USDT_SCOPE,
         isActive: true 
       });
+      if (!usdtMedia && chatId !== undefined && chatId !== null) {
+        // Fallback dữ liệu cũ theo chat để không mất dữ liệu hiện có
+        usdtMedia = await UsdtMedia.findOne({
+          chatId: chatId.toString(),
+          isActive: true
+        });
+      }
       return usdtMedia;
     } catch (error) {
       console.error('Error getting USDT media:', error);
@@ -62,8 +78,12 @@ class UsdtMediaHandler {
    */
   async clearUsdtMedia(chatId) {
     try {
-      await UsdtMedia.updateOne(
-        { chatId: chatId.toString(), isActive: true },
+      // Xóa cả global lẫn dữ liệu legacy theo chat (nếu có)
+      await UsdtMedia.updateMany(
+        {
+          isActive: true,
+          $or: [{ chatId: GLOBAL_USDT_SCOPE }, { chatId: chatId?.toString?.() || '' }]
+        },
         { isActive: false }
       );
       return true;
@@ -82,25 +102,23 @@ class UsdtMediaHandler {
         return false;
       }
 
-      const mediaGroup = [];
-      const caption = usdtMedia.usdtAddress;
-
-      // Chuẩn bị media group
-      for (const mediaFile of usdtMedia.mediaFiles) {
-        const mediaItem = {
-          type: mediaFile.fileType,
-          media: mediaFile.fileId,
-          caption: mediaFile.caption || ''
-        };
-        mediaGroup.push(mediaItem);
+      // Gửi từng media để hỗ trợ chắc chắn photo/video/animation/document
+      // và tránh giới hạn type khi sendMediaGroup.
+      for (let i = 0; i < usdtMedia.mediaFiles.length; i += 1) {
+        const mediaFile = usdtMedia.mediaFiles[i];
+        const caption = i === 0 ? `<code>${escapeHtml(usdtMedia.usdtAddress)}</code>` : undefined;
+        if (mediaFile.fileType === 'photo') {
+          await bot.sendPhoto(chatId, mediaFile.fileId, caption ? { caption, parse_mode: 'HTML' } : {});
+        } else if (mediaFile.fileType === 'video') {
+          await bot.sendVideo(chatId, mediaFile.fileId, caption ? { caption, parse_mode: 'HTML' } : {});
+        } else if (mediaFile.fileType === 'animation') {
+          await bot.sendAnimation(chatId, mediaFile.fileId, caption ? { caption, parse_mode: 'HTML' } : {});
+        } else if (mediaFile.fileType === 'document') {
+          await bot.sendDocument(chatId, mediaFile.fileId, caption ? { caption, parse_mode: 'HTML' } : {});
+        }
       }
 
-      // Gửi media group với caption chính
-      const result = await bot.sendMediaGroup(chatId, mediaGroup, {
-        caption: caption
-      });
-
-      return result;
+      return true;
     } catch (error) {
       console.error('Error sending USDT media:', error);
       throw error;

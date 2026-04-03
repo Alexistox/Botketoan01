@@ -382,6 +382,141 @@ const handleHelpCommand = async (bot, chatId) => {
   }
 };
 
+/**
+ * Xử lý lệnh trợ giúp chi tiết (/help2)
+ */
+const handleHelp2Command = async (bot, chatId) => {
+  try {
+    const help2Message = `
+📚 *HƯỚNG DẪN CHI TIẾT TOÀN BỘ LỆNH BOT*
+
+🔐 *Phân quyền:*
+- 👑 Owner: toàn quyền
+- 🛠 Admin: quản trị người dùng/hệ thống
+- 🔹 Operator: thao tác nghiệp vụ nhóm
+- 👤 Member: người dùng thường
+
+━━━━━━━━━━━━━━━━━━
+*1) Lệnh cơ bản*
+- \`/start\` hoặc \`/st\`: mở hướng dẫn nhanh
+- \`/help\`: trợ giúp ngắn
+- \`/help2\`: trợ giúp chi tiết (lệnh này)
+- \`/off\`: gửi lời kết phiên
+- \`/report\` hoặc \`结束\`: báo cáo tổng hợp
+- \`/report1\`: báo cáo chi tiết hơn (Operator)
+
+━━━━━━━━━━━━━━━━━━
+*2) Quy đổi & biểu thức*
+- \`/t <VND>\`: đổi VND -> USDT
+- \`/v <USDT>\`: đổi USDT -> VND
+- Nhập biểu thức toán trực tiếp: ví dụ \`12w+5\`, \`1亿+2亿\`, \`1y/2\`
+- Hỗ trợ ký hiệu số: \`k\`, \`m\`, \`w\`, \`万\`, \`亿\`, \`y\`, \`个亿\`
+
+━━━━━━━━━━━━━━━━━━
+*3) Tỷ giá & phí (Operator)*
+- \`设置费率<giá trị>\` (vd: \`设置费率2\`)
+- \`设置汇率<giá trị>\` (vd: \`设置汇率14600\`)
+- \`/d <phí>/<tỷ giá>\` hoặc alias \`价格\`
+- \`/d2 <phí xuất>/<tỷ giá xuất>\`
+- \`/d2 off\`: tắt hiển thị phí/tỷ giá xuất
+- \`上课\` / \`Start\` / \`开始新账单\`: reset phiên làm việc
+
+━━━━━━━━━━━━━━━━━━
+*4) Giao dịch (Operator)*
+- \`+<số tiền> [mã thẻ] [hạn mức]\`: cộng giao dịch
+- \`-<số tiền> [mã thẻ]\`: trừ giao dịch
+- \`下发 <USDT> [mã thẻ]\` hoặc \`%...\`: đánh dấu đã chi
+- \`/delete <ID>\`: xóa giao dịch
+- \`/skip <ID>\` hoặc alias \`撤回 <ID>\`: bỏ qua giao dịch
+
+━━━━━━━━━━━━━━━━━━
+*5) Thẻ ngân hàng (Operator)*
+- \`/x <mã thẻ>\`: ẩn thẻ
+- \`/sx <mã thẻ>\`: hiện lại thẻ
+- \`/hiddenCards\`: danh sách thẻ đang ẩn
+
+━━━━━━━━━━━━━━━━━━
+*6) QR / ảnh / OCR*
+- \`/qr on\` | \`/qr off\`: bật/tắt QR mode
+- \`/c\`: trích xuất thông tin ngân hàng từ ảnh
+- \`/pic on\` | \`/pic off\`: bật/tắt chế độ xử lý reply ảnh (1/2/3)
+
+━━━━━━━━━━━━━━━━━━
+*7) Địa chỉ USDT*
+- \`/usdt <address>\` hoặc alias \`设置地址 <address>\` (Admin+)
+- \`/u\` hoặc alias \`u来u来\`: xem địa chỉ USDT hiện tại
+- \`/rmusdt ...\` hoặc alias \`删除usdt ...\`: xóa địa chỉ USDT (Admin+)
+- Gửi chuỗi TRC20 bot sẽ tự nhận diện và format
+
+━━━━━━━━━━━━━━━━━━
+*8) Quản lý operator / admin / owner*
+- \`/op @user\` hoặc \`设置操作 @user\`: thêm operator (Admin+)
+- \`/removeop @user\` hoặc \`删除操作 @user\`: xóa operator (Admin+)
+- \`/ops\` hoặc \`操作人\`: xem operator
+- \`/ad @user\` / \`添加管理员 ...\`: thêm admin (Owner)
+- \`/removead @user\` / \`删除管理员 ...\`: xóa admin (Owner)
+- \`/admins\`: danh sách admin
+- \`/setowner ...\`: đặt owner (Owner)
+- \`/remove ...\`: gỡ người dùng (Owner)
+- \`/migrate\`: migrate dữ liệu (Owner)
+
+━━━━━━━━━━━━━━━━━━
+*9) Button tùy chỉnh*
+- \`/inline <text>|<command>\`: thêm/sửa nút
+- \`/removeinline <text>\`: xóa nút
+- \`/buttons\`: xem nút
+- \`/onbut\` | \`/offbut\`: bật/tắt hiển thị nút
+- \`/inline2 ...\`, \`/removeinline2 ...\`, \`/buttons2\`, \`/chat ...\`: nhóm lệnh button/chat mở rộng
+
+━━━━━━━━━━━━━━━━━━
+*10) Định dạng số*
+- \`/format A\`: bật format có phân tách (vd: 1,000,000.00)
+- \`/format\`: về format mặc định
+
+━━━━━━━━━━━━━━━━━━
+*11) Broadcast nhóm/tin đã lưu (Operator)*
+- \`/g <mã>\`: thêm nhóm hiện tại vào tập mã
+- \`/glist\`: xem tất cả tập nhóm (id + tên nhóm)
+- \`/dg\`: gỡ nhóm hiện tại khỏi mọi tập
+- \`/dg <id nhóm>\`: gỡ id đó khỏi mọi tập
+- \`/dg <mã>\`: gỡ nhóm hiện tại khỏi 1 tập mã
+- \`/cm <mã tin>\`: lưu tin (reply tin cần lưu hoặc gửi media kèm caption)
+- \`/cmlist\`: xem mã tin đã lưu + gửi lại toàn bộ nội dung đã lưu
+- \`/dm <mã tin>\`: xóa tin đã lưu
+- \`/send <mã tin> <mã nhóm|id>\`: gửi tin đã lưu tới nhóm đích
+- Reply 1 tin rồi dùng \`/send <mã nhóm|id>\`: gửi trực tiếp tin reply
+
+💡 *Gợi ý:* trong đa số nhóm, lệnh nghiệp vụ cần quyền Operator trở lên.
+`;
+    const maxLen = 3800;
+    const chunks = [];
+    let remaining = help2Message.trim();
+
+    while (remaining.length > 0) {
+      if (remaining.length <= maxLen) {
+        chunks.push(remaining);
+        break;
+      }
+      const piece = remaining.slice(0, maxLen);
+      let splitAt = piece.lastIndexOf('\n');
+      if (splitAt < 500) splitAt = maxLen;
+
+      const chunk = remaining.slice(0, splitAt).trim();
+      chunks.push(chunk);
+      remaining = remaining.slice(splitAt).trim();
+    }
+
+    for (let i = 0; i < chunks.length; i += 1) {
+      const prefix = chunks.length > 1 ? `📚 Help2 (${i + 1}/${chunks.length})\n\n` : '';
+      // Gửi plain text để tránh lỗi Markdown khi nội dung bị chia nhỏ.
+      await bot.sendMessage(chatId, `${prefix}${chunks[i]}`);
+    }
+  } catch (error) {
+    console.error('Error in handleHelp2Command:', error);
+    bot.sendMessage(chatId, "Hiển thị trợ giúp chi tiết thất bại. Vui lòng thử lại sau.");
+  }
+};
+
 const handleStartCommand = async (bot, chatId) => {
   try {
     const startMessage = `欢迎使用记账机器人！\n\n开始新账单/ 上课\n记账入账▫️+10000 或者 +数字 [卡号] [额度]\n代付减账▫️-10000\n撤回▫️撤回id\n下发▫️下发 100  或者 %数字 [卡号] [额度]\n设置费率▫️设置汇率1600  或者 \n价格 费率/汇率\n设置操作▫️@群成员  （群成员 必须在设置之前发送消息）\n删除操作▫️@群成员 \n操作人 ▫️ 查看被授权人员名单\n\n+0▫️\n结束| /report`;
@@ -496,6 +631,7 @@ module.exports = {
   handleTrc20Address,
   handleReportCommand,
   handleHelpCommand,
+  handleHelp2Command,
   handleStartCommand,
   handleFormatCommand,
   handlePicCommand,

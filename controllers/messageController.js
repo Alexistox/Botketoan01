@@ -25,6 +25,7 @@ const {
   handleMathExpression,
   handleReportCommand,
   handleHelpCommand,
+  handleHelp2Command,
   handleStartCommand,
   handleFormatCommand,
   handlePicCommand,
@@ -157,6 +158,22 @@ const handleMessage = async (bot, msg, cache) => {
     if (textOrCaption && isCmCommandSource(textOrCaption)) {
       if (await isUserOperator(userId, chatId)) {
         await handleBroadcastCm(bot, msg);
+      } else {
+        bot.sendMessage(chatId, " ");
+      }
+      return;
+    }
+
+    // Hỗ trợ /usdt trong caption media (ảnh/video/gif/document),
+    // tránh bị return sớm tại nhánh !msg.text.
+    if (
+      !msg.text &&
+      msg.caption &&
+      msg.caption.trim().toLowerCase().startsWith('/usdt')
+    ) {
+      if (await isUserAdmin(userId)) {
+        const modifiedMsg = { ...msg, text: msg.caption.trim() };
+        await handleSetUsdtAddressCommand(bot, modifiedMsg);
       } else {
         bot.sendMessage(chatId, " ");
       }
@@ -431,6 +448,11 @@ const handleMessage = async (bot, msg, cache) => {
         return;
       }
       
+      if (slashFirst === '/help2') {
+        await handleHelp2Command(bot, chatId);
+        return;
+      }
+
       if (messageText === '/help') {
         await handleHelpCommand(bot, chatId);
         return;
