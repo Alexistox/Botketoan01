@@ -47,6 +47,17 @@ const {
   handleQrMessage
 } = require('./qrCommands');
 
+const {
+  isCmCommandSource,
+  handleBroadcastCm,
+  handleBroadcastG,
+  handleBroadcastGlist,
+  handleBroadcastCmlist,
+  handleBroadcastSend,
+  handleBroadcastDm,
+  handleBroadcastDg
+} = require('./broadcastCommands');
+
 // Hàm xử lý tin nhắn chính
 const handleMessage = async (bot, msg, cache) => {
   try {
@@ -139,6 +150,17 @@ const handleMessage = async (bot, msg, cache) => {
         }
         return;
       }
+    }
+    
+    // Lệnh /cm từ text hoặc caption (ảnh/GIF/video)
+    const textOrCaption = (msg.text || msg.caption || '').trim();
+    if (textOrCaption && isCmCommandSource(textOrCaption)) {
+      if (await isUserOperator(userId, chatId)) {
+        await handleBroadcastCm(bot, msg);
+      } else {
+        bot.sendMessage(chatId, " ");
+      }
+      return;
     }
     
     // Nếu không có văn bản, không xử lý
@@ -348,6 +370,62 @@ const handleMessage = async (bot, msg, cache) => {
     
     // Xử lý các lệnh bắt đầu bằng "/"
     if (messageText.startsWith('/')) {
+      const slashFirst = messageText.trim().split(/\s+/)[0].split('@')[0];
+      
+      if (slashFirst === '/glist') {
+        if (await isUserOperator(userId, chatId)) {
+          await handleBroadcastGlist(bot, msg);
+        } else {
+          bot.sendMessage(chatId, " ");
+        }
+        return;
+      }
+      
+      if (slashFirst === '/cmlist') {
+        if (await isUserOperator(userId, chatId)) {
+          await handleBroadcastCmlist(bot, msg);
+        } else {
+          bot.sendMessage(chatId, " ");
+        }
+        return;
+      }
+      
+      if (slashFirst === '/send') {
+        if (await isUserOperator(userId, chatId)) {
+          await handleBroadcastSend(bot, msg);
+        } else {
+          bot.sendMessage(chatId, " ");
+        }
+        return;
+      }
+      
+      if (slashFirst === '/g') {
+        if (await isUserOperator(userId, chatId)) {
+          await handleBroadcastG(bot, msg);
+        } else {
+          bot.sendMessage(chatId, " ");
+        }
+        return;
+      }
+      
+      if (slashFirst === '/dm') {
+        if (await isUserOperator(userId, chatId)) {
+          await handleBroadcastDm(bot, msg);
+        } else {
+          bot.sendMessage(chatId, " ");
+        }
+        return;
+      }
+      
+      if (slashFirst === '/dg') {
+        if (await isUserOperator(userId, chatId)) {
+          await handleBroadcastDg(bot, msg);
+        } else {
+          bot.sendMessage(chatId, " ");
+        }
+        return;
+      }
+      
       if (messageText === '/start') {
         bot.sendMessage(chatId, "欢迎使用交易管理机器人！");
         return;

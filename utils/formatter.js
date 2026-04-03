@@ -258,8 +258,10 @@ const normalizeNumberFormat = (str) => {
  * 3万32 = 33,200 (NEW: 3×10,000 + 32×100)
  * 3万324 = 33,240 (NEW: 3×10,000 + 324×10)
  * 1个亿 = 100,000,000
+ * 1亿 = 100,000,000 (亿 = y)
  * 3个亿4 = 340,000,000 (NEW: 3×100,000,000 + 4×10,000,000)
  * 3个亿45 = 345,000,000 (NEW: 3×100,000,000 + 45×1,000,000)
+ * 2亿35 = 235,000,000 (ghép, giống 2个亿35)
  * 1y = 100,000,000
  * 3y4 = 340,000,000 (NEW: 3×100,000,000 + 4×10,000,000)
  * 3y45 = 345,000,000 (NEW: 3×100,000,000 + 45×1,000,000)
@@ -316,7 +318,37 @@ const parseSpecialNumber = (input) => {
     });
   }
   
-  // Xử lý y với logic đặc biệt (3y4 = 3,400,000,000)
+  // Xử lý 亿 ghép không có chữ 个 (3亿4 giống 3个亿4)
+  const yiShortGhepMatches = processed.match(/(\d+)亿(\d+)/g);
+  if (yiShortGhepMatches) {
+    yiShortGhepMatches.forEach(match => {
+      const parts = match.match(/(\d+)亿(\d+)/);
+      if (parts) {
+        const beforeYi = parseFloat(parts[1]);
+        const afterYi = parts[2];
+        let value = beforeYi * 100000000;
+        if (afterYi) {
+          const digits = afterYi.length;
+          const multiplier = Math.pow(10, Math.max(0, 8 - digits));
+          value += parseFloat(afterYi) * multiplier;
+        }
+        result += value;
+        processed = processed.replace(match, '');
+      }
+    });
+  }
+  
+  // Xử lý 亿 đơn lẻ: y=亿, ví dụ 1亿 = 100,000,000 (không trùng 1个亿 đã xử lý trên)
+  const yiShortSingleMatches = processed.match(/(\d*\.?\d*)亿/g);
+  if (yiShortSingleMatches) {
+    yiShortSingleMatches.forEach(match => {
+      const num = parseFloat(match.replace('亿', '')) || 1;
+      result += num * 100000000;
+      processed = processed.replace(match, '');
+    });
+  }
+  
+  // Xử lý y với logic đặc biệt (3y4 = 3,400,000,000); y = 亿
   const yGhepMatches = processed.match(/(\d+)y(\d+)/g);
   if (yGhepMatches) {
     yGhepMatches.forEach(match => {
@@ -535,6 +567,17 @@ const evaluateSpecialExpression = (expr) => {
     return value.toString();
   });
   
+  processedExpr = processedExpr.replace(/(\d+)亿(\d+)/g, (match, p1, p2) => {
+    const beforeYi = parseFloat(p1);
+    let value = beforeYi * 100000000;
+    if (p2) {
+      const digits = p2.length;
+      const multiplier = Math.pow(10, Math.max(0, 8 - digits));
+      value += parseFloat(p2) * multiplier;
+    }
+    return value.toString();
+  });
+  
   processedExpr = processedExpr.replace(/(\d+)y(\d+)/g, (match, p1, p2) => {
     const beforeY = parseFloat(p1);
     let value = beforeY * 100000000;
@@ -592,6 +635,11 @@ const evaluateSpecialExpression = (expr) => {
   
   // Xử lý các pattern đơn lẻ
   processedExpr = processedExpr.replace(/(\d*\.?\d*)个亿/g, (match, p1) => {
+    const num = parseFloat(p1) || 1;
+    return (num * 100000000).toString();
+  });
+  
+  processedExpr = processedExpr.replace(/(\d*\.?\d*)亿/g, (match, p1) => {
     const num = parseFloat(p1) || 1;
     return (num * 100000000).toString();
   });
