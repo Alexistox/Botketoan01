@@ -15,6 +15,9 @@ const extractMoneyFromText = (text) => {
   
   // Các pattern để tìm số tiền (hỗ trợ đa định dạng số)
   const patterns = [
+    // Biên lai tiếng Trung: "- 入款: +600,000 đ"
+    /(?:^|\n)\s*[-–•]?\s*入款\s*[:：]\s*\+?\s*(\d{1,3}(?:[,.]\d{3})*(?:\.\d{1,2})?)\s*(?:đ|vnd|vnđ)\b/gi,
+
     // Pattern cao ưu tiên cho "SỐ TIỀN GIAO DỊCH" và các từ khóa chính xác
     /(?:số tiền giao dịch|số tiền|amount|total|transaction amount|金额)\s*[:\-：]?\s*(\d{1,3}(?:[,]\d{3})+(?:\.\d{1,2})?)\s*(?:vnd|vnđ|đ|usd|usdt)/gi,
     
@@ -99,14 +102,17 @@ const extractMoneyFromBankNotification = (text) => {
 
   // Patterns ưu tiên cao cho "tiền vào/nhận" (tránh "số dư")
   const highPriorityPatterns = [
+    // Biên lai: đầu dòng "- 入款: +600,000 đ" / "入款：600.000 đ"
+    /(?:^|\n)\s*[-–•]?\s*入款\s*[:：]\s*\+?\s*(\d{1,3}(?:[,.]\d{3})*(?:\.\d{1,2})?)\s*(?:đ|vnd|vnđ)\b/gi,
+
     // Tiền vào với dấu + (VN)
     /(?:tiền vào|tiền nhận|tiền đến|nhận tiền|tiền chuyển đến|tiền chuyển vào|credited|received|deposit|income|incoming)\s*[:\-]?\s*\+?\s*(\d{1,3}(?:[,.]?\d{3})*(?:\.\d{1,2})?)\s*(?:đ|vnd|vnđ|usd|usdt|dollars?)/gi,
     
     // Format với dấu + đầu tin nhắn
     /^\s*\+\s*(\d{1,3}(?:[,.]?\d{3})*(?:\.\d{1,2})?)\s*(?:đ|vnd|vnđ|usd|usdt|dollars?)/gi,
     
-    // Tiền vào tiếng Trung
-    /(?:入账|收款|到账|转入|存入)\s*[:\-]?\s*\+?\s*(\d{1,3}(?:[,.]?\d{3})*(?:\.\d{1,2})?)\s*(?:元|人民币|rmb|usd|usdt)/gi,
+    // Tiền vào tiếng Trung (入账 / 入款 + VND hoặc CNY)
+    /(?:入账|入款|收款|到账|转入|存入)\s*[:\-]?\s*\+?\s*(\d{1,3}(?:[,.]?\d{3})*(?:\.\d{1,2})?)\s*(?:元|人民币|rmb|usd|usdt|đ|vnd|vnđ)\b/gi,
     
     // Credit/Deposit trong tiếng Anh
     /(?:credited with|received|deposit of|incoming)\s*[:\-]?\s*\$?\s*(\d{1,3}(?:[,.]?\d{3})*(?:\.\d{1,2})?)/gi

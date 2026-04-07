@@ -6,6 +6,17 @@ const { formatSmart, formatRateValue, formatTelegramMessage, formatWithdrawRateM
 const { getDepositHistory, getPaymentHistory, getCardSummary } = require('./groupCommands');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
 
+/** Sau khi +/-/下发 thành công: xóa tin reply "1"/"2"/"3" (pic / bank). */
+const maybeDeleteReplyTriggerMessage = async (bot, chatId, msg) => {
+  const triggerId = msg._deleteReplyTriggerMessageId;
+  if (triggerId == null) return;
+  try {
+    await bot.deleteMessage(chatId, triggerId);
+  } catch (_) {
+    /* Bot cần quyền xóa; tin có thể quá 48h */
+  }
+};
+
 /**
  * Xử lý lệnh thêm tiền (+)
  */
@@ -111,10 +122,11 @@ const handlePlusCommand = async (bot, msg) => {
       const showButtons = await getButtonsStatus(chatId);
       const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
       
-      bot.sendMessage(chatId, response, { 
+      await bot.sendMessage(chatId, response, { 
         parse_mode: 'Markdown',
         reply_markup: keyboard
       });
+      await maybeDeleteReplyTriggerMessage(bot, chatId, msg);
       return;
     }
    
@@ -248,10 +260,11 @@ const handlePlusCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    bot.sendMessage(chatId, response, { 
+    await bot.sendMessage(chatId, response, { 
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
+    await maybeDeleteReplyTriggerMessage(bot, chatId, msg);
     
   } catch (error) {
     console.error('Error in handlePlusCommand:', error);
@@ -471,10 +484,11 @@ const handleMinusCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    bot.sendMessage(chatId, response, { 
+    await bot.sendMessage(chatId, response, { 
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
+    await maybeDeleteReplyTriggerMessage(bot, chatId, msg);
     
   } catch (error) {
     console.error('Error in handleMinusCommand:', error);
@@ -663,10 +677,11 @@ const handlePercentCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    bot.sendMessage(chatId, response, { 
+    await bot.sendMessage(chatId, response, { 
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
+    await maybeDeleteReplyTriggerMessage(bot, chatId, msg);
     
   } catch (error) {
     console.error('Error in handlePercentCommand:', error);

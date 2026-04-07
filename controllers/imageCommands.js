@@ -134,7 +134,7 @@ const handleBankNotificationReply = async (bot, msg) => {
     
     // Kiểm tra nếu tin nhắn được reply có chứa text
     if (!msg.reply_to_message || !msg.reply_to_message.text) {
-      bot.sendMessage(chatId, );
+      bot.sendMessage(chatId, "❌ 请回复一条含有文字的消息。");
       return;
     }
     
@@ -144,27 +144,31 @@ const handleBankNotificationReply = async (bot, msg) => {
     const isBankNotification = isBankNotificationMessage(repliedText);
     
     if (!isBankNotification) {
-      bot.sendMessage(chatId, );
+      bot.sendMessage(chatId, "❌ 未识别为银行或转账通知。请检查内容，或开启 /pic on 后重试。");
       return;
     }
     
     // Thông báo đang xử lý
     const processingMsg = await bot.sendMessage(chatId, "⏳ 正在识别银行通知中的金额…");
     
-    // Trích xuất số tiền từ tin nhắn thông báo (ưu tiên "tiền vào" thay vì "số dư")
-    const moneyAmount = extractMoneyFromBankNotification(repliedText);
+    // Trích xuất số tiền (ưu tiên biên lai / tiền vào; fallback dùng parser chung)
+    let moneyAmount = extractMoneyFromBankNotification(repliedText);
+    if (moneyAmount == null || moneyAmount <= 0) {
+      moneyAmount = extractMoneyFromText(repliedText);
+    }
     
     // Xóa tin nhắn xử lý
     bot.deleteMessage(chatId, processingMsg.message_id);
     
     if (moneyAmount && moneyAmount > 0) {
-      // Tạo tin nhắn giả để gọi lệnh +
+      // messageId giao dịch = tin được reply (link id trong báo cáo); xóa tin "1" sau khi + xong
       const fakeMsg = {
         ...msg,
         text: `+${moneyAmount}`,
         chat: { id: chatId },
         from: msg.from,
-        message_id: msg.message_id
+        message_id: msg.reply_to_message.message_id,
+        _deleteReplyTriggerMessageId: msg.message_id
       };
       
       // Import và gọi function xử lý lệnh +
@@ -172,7 +176,7 @@ const handleBankNotificationReply = async (bot, msg) => {
       await handlePlusCommand(bot, fakeMsg);
       
     } else {
-      bot.sendMessage(chatId, );
+      bot.sendMessage(chatId, "❌ 无法从该通知中识别金额。");
     }
     
   } catch (error) {
@@ -210,8 +214,8 @@ const isBankNotificationMessage = (text) => {
   
   // Các từ khóa thông báo ngân hàng tiếng Trung
   const chineseBankKeywords = [
-    '入账', '出账', '转账', '余额', '账户', '银行', '支付', '收款', '付款',
-    '交易', '流水', '账单', '汇款', '存款', '取款', '充值'
+    '入账', '入款', '出账', '转账', '余额', '账户', '银行', '支付', '收款', '付款',
+    '交易', '流水', '账单', '汇款', '存款', '取款', '充值', '时间', '备注'
   ];
   
   // Patterns cho format số tiền và thời gian
@@ -334,13 +338,14 @@ const handlePicModeReply = async (bot, msg, replyNumber) => {
       const extractionMessage = `✅ 已提取金额：${formatSmart(moneyAmount, 'formatted')}\n🔄 执行指令：${commandName}${formatSmart(moneyAmount, 'formatted')}`;
       await bot.sendMessage(chatId, extractionMessage);
       
-      // Tạo tin nhắn giả để gọi lệnh tương ứng
+      // messageId giao dịch = tin được reply (ảnh/biên lai); xóa tin "1"/"2"/"3" sau khi lệnh xong
       const fakeMsg = {
         ...msg,
         text: commandText,
         chat: { id: chatId },
         from: msg.from,
-        message_id: msg.message_id
+        message_id: msg.reply_to_message.message_id,
+        _deleteReplyTriggerMessageId: msg.message_id
       };
       
       // Import và gọi function xử lý lệnh tương ứng
