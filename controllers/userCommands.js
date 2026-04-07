@@ -217,24 +217,33 @@ const handleAddOperatorInGroupCommand = async (bot, msg) => {
     }
     
     // Phân tích tin nhắn
-    const parts = messageText.split('/op ');
-    if (parts.length !== 2) {
-      bot.sendMessage(chatId, "语法无效。例如: /op @username1 @username2 @username3");
+    const parts = messageText.split(/\/op\s+/);
+    if (parts.length < 2 || !parts[1]) {
+      bot.sendMessage(chatId, "语法无效。例如: /op [group_id] @username1 @username2");
       return;
     }
     
-    // Tách các username
-    const usernames = parts[1].trim().split(' ').filter(u => u.startsWith('@'));
+    // Tách các tham số
+    const args = parts[1].trim().split(/\s+/);
+    let targetChatId = chatId.toString();
+    
+    // Kiểm tra id nhóm tùy chọn (nằm ở đầu và là một chuỗi số, có thể có dấu trừ)
+    if (args[0] && /^-?\d+$/.test(args[0])) {
+      targetChatId = args.shift();
+    }
+
+    // Lọc ra các username
+    const usernames = args.filter(u => u.startsWith('@'));
     if (usernames.length === 0) {
-      bot.sendMessage(chatId, "/op || 设置操作。例如: /op @username1 @username2");
+      bot.sendMessage(chatId, "/op || 设置操作。例如: /op [group_id] @username1 @username2");
       return;
     }
 
     // Tìm hoặc tạo nhóm
-    let group = await Group.findOne({ chatId: chatId.toString() });
+    let group = await Group.findOne({ chatId: targetChatId });
     if (!group) {
       group = new Group({
-        chatId: chatId.toString(),
+        chatId: targetChatId,
         operators: []
       });
     }
@@ -267,12 +276,12 @@ const handleAddOperatorInGroupCommand = async (bot, msg) => {
       });
       
       // Cập nhật groupPermissions trong User document
-      const groupPerm = targetUser.groupPermissions.find(p => p.chatId === chatId.toString());
+      const groupPerm = targetUser.groupPermissions.find(p => p.chatId === targetChatId);
       if (groupPerm) {
         groupPerm.isOperator = true;
       } else {
         targetUser.groupPermissions.push({
-          chatId: chatId.toString(),
+          chatId: targetChatId,
           isOperator: true
         });
       }
@@ -311,21 +320,30 @@ const handleRemoveOperatorInGroupCommand = async (bot, msg) => {
     }
     
     // Phân tích tin nhắn
-    const parts = messageText.split('/removeop ');
-    if (parts.length !== 2) {
-      bot.sendMessage(chatId, "语法无效。例如: /removeop @username1 @username2 @username3");
+    const parts = messageText.split(/\/removeop\s+/);
+    if (parts.length < 2 || !parts[1]) {
+      bot.sendMessage(chatId, "语法无效。例如: /removeop [group_id] @username1 @username2");
       return;
     }
     
-    // Tách các username
-    const usernames = parts[1].trim().split(' ').filter(u => u.startsWith('@'));
+    // Tách các tham số
+    const args = parts[1].trim().split(/\s+/);
+    let targetChatId = chatId.toString();
+    
+    // Kiểm tra id nhóm tùy chọn
+    if (args[0] && /^-?\d+$/.test(args[0])) {
+      targetChatId = args.shift();
+    }
+    
+    // Lọc ra các username
+    const usernames = args.filter(u => u.startsWith('@'));
     if (usernames.length === 0) {
-      bot.sendMessage(chatId, "用 /removeop || 删除操作。例如: /removeop @username1 @username2");
+      bot.sendMessage(chatId, "用 /removeop || 删除操作。例如: /removeop [group_id] @username1 @username2");
       return;
     }
 
     // Tìm thông tin nhóm
-    let group = await Group.findOne({ chatId: chatId.toString() });
+    let group = await Group.findOne({ chatId: targetChatId });
     if (!group || !group.operators || group.operators.length === 0) {
       bot.sendMessage(chatId, `⚠️ 此群组尚未设置任何操作员。`);
       return;
@@ -362,7 +380,7 @@ const handleRemoveOperatorInGroupCommand = async (bot, msg) => {
       group.operators.splice(operatorIndex, 1);
       
       // Cập nhật groupPermissions trong User document
-      const groupPermIndex = targetUser.groupPermissions.findIndex(p => p.chatId === chatId.toString());
+      const groupPermIndex = targetUser.groupPermissions.findIndex(p => p.chatId === targetChatId);
       if (groupPermIndex !== -1) {
         targetUser.groupPermissions.splice(groupPermIndex, 1);
         await targetUser.save();
@@ -392,8 +410,19 @@ const handleListOperatorsCommand = async (bot, msg) => {
   try {
     const chatId = msg.chat.id;
     
+    // Phân tích tin nhắn
+    const parts = msg.text.split(/\/ops\s+/);
+    let targetChatId = chatId.toString();
+    
+    if (parts.length > 1 && parts[1].trim()) {
+      const arg = parts[1].trim().split(/\s+/)[0];
+      if (/^-?\d+$/.test(arg)) {
+        targetChatId = arg;
+      }
+    }
+    
     // Tìm thông tin nhóm
-    const group = await Group.findOne({ chatId: chatId.toString() });
+    const group = await Group.findOne({ chatId: targetChatId });
     
     if (!group || !group.operators || group.operators.length === 0) {
       bot.sendMessage(chatId, `⚠️ 此群组尚未设置任何操作员。`);
