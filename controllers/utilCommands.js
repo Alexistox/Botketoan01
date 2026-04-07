@@ -4,8 +4,21 @@ const Card = require('../models/Card');
 const Config = require('../models/Config');
 const User = require('../models/User');
 const { formatSmart, formatRateValue, formatTelegramMessage, formatWithdrawRateMessage, parseSpecialNumber, evaluateSpecialExpression, isTrc20Address, formatDateUS, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
+const { sendLongMarkdownMessage } = require('../utils/telegramChunks');
+const { isUserOperator } = require('../utils/permissions');
 const { getDepositHistory, getPaymentHistory, getCardSummary } = require('./groupCommands');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
+
+/**
+ * Chuẩn hóa ID nhóm từ đối số /report (vd -100xxx hoặc chỉ phần số sau -100).
+ */
+function normalizeReportChatIdArg(raw) {
+  if (raw == null || typeof raw !== 'string') return null;
+  const s = raw.trim().split('@')[0].trim();
+  if (!s || !/^-?\d+$/.test(s)) return null;
+  if (s.startsWith('-')) return s;
+  return `-100${s}`;
+}
 
 /**
  * Xử lý lệnh tính toán USDT (/t)
@@ -163,19 +176,52 @@ const handleTrc20Address = async (bot, chatId, address, senderName) => {
 };
 
 /**
- * Xử lý lệnh báo cáo (/report hoặc 结束)
+ * Xử lý lệnh báo cáo (/report [群组ID] hoặc 结束)
+ * @param {object} [options]
+ * @param {string} [options.reportChatId] - Nhóm cần báo cáo; mặc định = chat nơi gửi lệnh
  */
-const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
+const handleReportCommand = async (bot, replyChatId, senderName, userId = null, options = {}) => {
   try {
+    const replyIdStr = replyChatId.toString();
+    const reportChatId =
+      options.reportChatId != null ? String(options.reportChatId) : replyIdStr;
+
+    const isDm = !replyIdStr.startsWith('-');
+    if (options.reportChatId == null && isDm) {
+      bot.sendMessage(
+        replyChatId,
+        "在私聊请指定群组：`/report -100xxxxxxxxxx`（需为该群操作员或管理员）"
+      );
+      return;
+    }
+
+    if (reportChatId !== replyIdStr) {
+      if (userId == null) {
+        bot.sendMessage(replyChatId, "⛔ 无法验证身份，无法查看其他群组报告。");
+        return;
+      }
+      const allowed = await isUserOperator(userId, reportChatId);
+      if (!allowed) {
+        bot.sendMessage(
+          replyChatId,
+          "⛔ 无权查看该群组的报告。需为目标群组的操作员或系统管理员。"
+        );
+        return;
+      }
+    }
+
     // Tìm group
-    const group = await Group.findOne({ chatId: chatId.toString() });
+    const group = await Group.findOne({ chatId: reportChatId });
     if (!group) {
-      bot.sendMessage(chatId, "没有可用的数据。");
+      bot.sendMessage(
+        replyChatId,
+        reportChatId === replyIdStr ? "没有可用的数据。" : "未找到该群组或群组未注册。请检查群组 ID。"
+      );
       return;
     }
     
     // Lấy đơn vị tiền tệ
-    const configCurrency = await Config.findOne({ key: `CURRENCY_UNIT_${chatId}` });
+    const configCurrency = await Config.findOne({ key: `CURRENCY_UNIT_${reportChatId}` });
     const currencyUnit = configCurrency ? configCurrency.value : 'USDT';
     
     // Lấy thông tin tất cả các giao dịch trong ngày
@@ -184,7 +230,7 @@ const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
     
     // Lấy tất cả các giao dịch deposit/withdraw
     const depositTransactions = await Transaction.find({
-      chatId: chatId.toString(),
+      chatId: reportChatId,
       type: { $in: ['deposit', 'withdraw'] },
       timestamp: { $gt: lastClearDate },
       skipped: { $ne: true }
@@ -192,7 +238,7 @@ const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
     
     // Lấy tất cả các giao dịch payment
     const paymentTransactions = await Transaction.find({
-      chatId: chatId.toString(),
+      chatId: reportChatId,
       type: 'payment',
       timestamp: { $gt: lastClearDate },
       skipped: { $ne: true }
@@ -204,7 +250,7 @@ const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
         id: depositTransactions.length - index, // ID mới nhất = length, cũ nhất = 1
         details: t.details,
         messageId: t.messageId || null,
-        chatLink: t.messageId ? `https://t.me/c/${chatId.toString().replace('-100', '')}/${t.messageId}` : null,
+        chatLink: t.messageId ? `https://t.me/c/${reportChatId.replace('-100', '')}/${t.messageId}` : null,
         timestamp: t.timestamp,
         senderName: t.senderName || ''
       };
@@ -216,14 +262,14 @@ const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
         id: paymentTransactions.length - index, // ID mới nhất = length, cũ nhất = 1
         details: t.details,
         messageId: t.messageId || null,
-        chatLink: t.messageId ? `https://t.me/c/${chatId.toString().replace('-100', '')}/${t.messageId}` : null,
+        chatLink: t.messageId ? `https://t.me/c/${reportChatId.replace('-100', '')}/${t.messageId}` : null,
         timestamp: t.timestamp,
         senderName: t.senderName || ''
       };
     });
     
     // Lấy thông tin thẻ
-    const cardSummary = await getCardSummary(chatId);
+    const cardSummary = await getCardSummary(reportChatId);
     
     // Tạo response JSON với tất cả giao dịch
     const responseData = {
@@ -257,26 +303,27 @@ const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
       responseData.withdrawExchangeRate = formatRateValue(group.withdrawExchangeRate);
     }
     
-    // Lấy format của người dùng nếu có userId
-    const userFormat = userId ? await getGroupNumberFormat(chatId) : 'formatted';
+    // Định dạng số theo nhóm được báo cáo
+    const userFormat = await getGroupNumberFormat(reportChatId);
     
     // Format và gửi tin nhắn - sử dụng formatter phù hợp
     const response = hasWithdrawRate ? 
       formatWithdrawRateMessage(responseData, userFormat) : 
       formatTelegramMessage(responseData, userFormat);
     
-    // Kiểm tra trạng thái hiển thị buttons
-    const showButtons = await getButtonsStatus(chatId);
-    const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
+    // Chỉ hiện inline keyboard khi báo cáo đúng nhóm đang chat (tránh nút gắn nhầm nhóm)
+    const sameChat = reportChatId === replyIdStr;
+    const showButtons = sameChat ? await getButtonsStatus(reportChatId) : false;
+    const keyboard = showButtons ? await getInlineKeyboard(reportChatId) : null;
     
-    bot.sendMessage(chatId, response, { 
+    await sendLongMarkdownMessage(bot, replyChatId, response, {
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
     
   } catch (error) {
     console.error('Error in handleReportCommand:', error);
-    bot.sendMessage(chatId, "处理报告命令时出错。请稍后再试。");
+    bot.sendMessage(replyChatId, "处理报告命令时出错。请稍后再试。");
   }
 };
 
@@ -297,7 +344,8 @@ const handleHelpCommand = async (bot, chatId) => {
 /help - 查看帮助
 /off - 结束会话
 /u - 查看当前USDT地址 或者 u来u来
-/report - 查看交易报告
+/report - 查看当前群交易报告
+/report -100xxx - 查看指定群报告（需为该群操作员或管理员）
 /ops - 操作员列表 或者 操作人
 
 -------------------------
@@ -402,7 +450,8 @@ const handleHelp2Command = async (bot, chatId) => {
 - \`/help\`: trợ giúp ngắn
 - \`/help2\`: trợ giúp chi tiết (lệnh này)
 - \`/off\`: gửi lời kết phiên
-- \`/report\` hoặc \`结束\`: báo cáo tổng hợp
+- \`/report\` hoặc \`结束\`: báo cáo tổng hợp nhóm hiện tại
+- \`/report -100...\`: báo cáo nhóm khác (operator/admin nhóm đó); ví dụ \`/report -1001234567890\`
 - \`/report1\`: báo cáo chi tiết hơn (Operator)
 
 ━━━━━━━━━━━━━━━━━━
@@ -519,7 +568,7 @@ const handleHelp2Command = async (bot, chatId) => {
 
 const handleStartCommand = async (bot, chatId) => {
   try {
-    const startMessage = `欢迎使用记账机器人！\n\n开始新账单/ 上课\n记账入账▫️+10000 或者 +数字 [卡号] [额度]\n代付减账▫️-10000\n撤回▫️撤回id\n下发▫️下发 100  或者 %数字 [卡号] [额度]\n设置费率▫️设置汇率1600  或者 \n价格 费率/汇率\n设置操作▫️@群成员  （群成员 必须在设置之前发送消息）\n删除操作▫️@群成员 \n操作人 ▫️ 查看被授权人员名单\n\n+0▫️\n结束| /report`;
+    const startMessage = `欢迎使用记账机器人！\n\n开始新账单/ 上课\n记账入账▫️+10000 或者 +数字 [卡号] [额度]\n代付减账▫️-10000\n撤回▫️撤回id\n下发▫️下发 100  或者 %数字 [卡号] [额度]\n设置费率▫️设置汇率1600  或者 \n价格 费率/汇率\n设置操作▫️@群成员  （群成员 必须在设置之前发送消息）\n删除操作▫️@群成员 \n操作人 ▫️ 查看被授权人员名单\n\n+0▫️\n结束| /report（群内）| 私聊/跨群 /report -100群ID（需操作员）`;
     bot.sendMessage(chatId, startMessage);
   } catch (error) {
     console.error('Error in handleStartCommand:', error);
@@ -629,6 +678,7 @@ module.exports = {
   handleCalculateVndCommand,
   handleMathExpression,
   handleTrc20Address,
+  normalizeReportChatIdArg,
   handleReportCommand,
   handleHelpCommand,
   handleHelp2Command,

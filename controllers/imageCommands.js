@@ -134,7 +134,7 @@ const handleBankNotificationReply = async (bot, msg) => {
     
     // Kiểm tra nếu tin nhắn được reply có chứa text
     if (!msg.reply_to_message || !msg.reply_to_message.text) {
-      bot.sendMessage(chatId, "❌ 请回复一条含有文字的消息。");
+      bot.sendMessage(chatId, );
       return;
     }
     
@@ -144,7 +144,6 @@ const handleBankNotificationReply = async (bot, msg) => {
     const isBankNotification = isBankNotificationMessage(repliedText);
     
     if (!isBankNotification) {
-      bot.sendMessage(chatId, "❌ 未识别为银行或转账通知。请检查内容，或开启 /pic on 后重试。");
       return;
     }
     
@@ -176,7 +175,6 @@ const handleBankNotificationReply = async (bot, msg) => {
       await handlePlusCommand(bot, fakeMsg);
       
     } else {
-      bot.sendMessage(chatId, "❌ 无法从该通知中识别金额。");
     }
     
   } catch (error) {

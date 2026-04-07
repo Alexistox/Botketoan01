@@ -1,5 +1,6 @@
 const BroadcastGroupSet = require('../models/BroadcastGroupSet');
 const BroadcastSavedMessage = require('../models/BroadcastSavedMessage');
+const { splitTelegramText } = require('../utils/telegramChunks');
 
 function commandSource(msg) {
   return (msg.text || msg.caption || '').trim();
@@ -56,35 +57,8 @@ async function buildChatTitleMap(bot, chatIdStrings) {
 
 const TELEGRAM_CHUNK = 4000;
 
-/**
- * Chia chuỗi thành nhiều phần ≤ maxLen (ưu tiên cắt tại xuống dòng).
- */
-function splitTelegramText(text, maxLen = TELEGRAM_CHUNK) {
-  if (text.length <= maxLen) return [text];
-  const chunks = [];
-  let remaining = text;
-  while (remaining.length > 0) {
-    if (remaining.length <= maxLen) {
-      chunks.push(remaining);
-      break;
-    }
-    const slice = remaining.slice(0, maxLen);
-    let breakPos = maxLen;
-    const lastNl = slice.lastIndexOf('\n');
-    if (lastNl > maxLen * 0.12) breakPos = lastNl + 1;
-    let part = remaining.slice(0, breakPos);
-    if (part.length === 0) {
-      part = remaining.slice(0, maxLen);
-      breakPos = maxLen;
-    }
-    chunks.push(part.replace(/\s+$/, ''));
-    remaining = remaining.slice(breakPos).replace(/^\s+/, '');
-  }
-  return chunks;
-}
-
 async function sendTelegramChunks(bot, chatId, text) {
-  const chunks = splitTelegramText(text);
+  const chunks = splitTelegramText(text, TELEGRAM_CHUNK);
   const total = chunks.length;
   for (let i = 0; i < total; i += 1) {
     const body = total > 1 ? `(${i + 1}/${total})\n${chunks[i]}` : chunks[i];

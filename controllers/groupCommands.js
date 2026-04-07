@@ -4,6 +4,7 @@ const Card = require('../models/Card');
 const Config = require('../models/Config');
 const { formatSmart, formatRateValue, formatTelegramMessage, formatWithdrawRateMessage, parseSpecialNumber, formatDateUS, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
+const { sendLongMarkdownMessage } = require('../utils/telegramChunks');
 
 /**
  * Xử lý lệnh clear (上课) - Reset các giá trị về 0
@@ -172,7 +173,7 @@ const handleRateCommand = async (bot, msg) => {
     
     // Format và gửi tin nhắn
     const response = formatTelegramMessage(responseData, userFormat);
-    bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    await sendLongMarkdownMessage(bot, chatId, response, { parse_mode: 'Markdown' });
     
   } catch (error) {
     console.error('Error in handleRateCommand:', error);
@@ -268,7 +269,7 @@ const handleExchangeRateCommand = async (bot, msg) => {
     
     // Format và gửi tin nhắn
     const response = formatTelegramMessage(responseData, userFormat);
-    bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    await sendLongMarkdownMessage(bot, chatId, response, { parse_mode: 'Markdown' });
     
   } catch (error) {
     console.error('Error in handleExchangeRateCommand:', error);

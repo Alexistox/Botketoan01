@@ -23,6 +23,7 @@ const {
   handleCalculateUsdtCommand,
   handleCalculateVndCommand,
   handleMathExpression,
+  normalizeReportChatIdArg,
   handleReportCommand,
   handleHelpCommand,
   handleHelp2Command,
@@ -653,8 +654,21 @@ const handleMessage = async (bot, msg, cache) => {
         return;
       }
       
-      if (messageText === '/report') {
-        await handleReportCommand(bot, chatId, firstName, userId);
+      if (messageText === '/report' || messageText.startsWith('/report ')) {
+        const parts = messageText.trim().split(/\s+/).filter(Boolean);
+        let reportOpts = {};
+        if (parts.length >= 2) {
+          const targetId = normalizeReportChatIdArg(parts[1]);
+          if (!targetId) {
+            bot.sendMessage(
+              chatId,
+              "无效的群组 ID。示例：`/report -1001234567890` 或 `/report 1234567890`"
+            );
+            return;
+          }
+          reportOpts = { reportChatId: targetId };
+        }
+        await handleReportCommand(bot, chatId, firstName, userId, reportOpts);
         return;
       }
       

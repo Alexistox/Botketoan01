@@ -5,6 +5,7 @@ const Config = require('../models/Config');
 const { formatSmart, formatRateValue, formatTelegramMessage, formatWithdrawRateMessage, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
 const { getDepositHistory, getPaymentHistory, getCardSummary } = require('./groupCommands');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
+const { sendLongMarkdownMessage } = require('../utils/telegramChunks');
 
 /** Sau khi +/-/下发 thành công: xóa tin reply "1"/"2"/"3" (pic / bank). */
 const maybeDeleteReplyTriggerMessage = async (bot, chatId, msg) => {
@@ -122,7 +123,7 @@ const handlePlusCommand = async (bot, msg) => {
       const showButtons = await getButtonsStatus(chatId);
       const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
       
-      await bot.sendMessage(chatId, response, { 
+      await sendLongMarkdownMessage(bot, chatId, response, {
         parse_mode: 'Markdown',
         reply_markup: keyboard
       });
@@ -260,7 +261,7 @@ const handlePlusCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    await bot.sendMessage(chatId, response, { 
+    await sendLongMarkdownMessage(bot, chatId, response, {
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
@@ -484,7 +485,7 @@ const handleMinusCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    await bot.sendMessage(chatId, response, { 
+    await sendLongMarkdownMessage(bot, chatId, response, {
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
@@ -677,7 +678,7 @@ const handlePercentCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    await bot.sendMessage(chatId, response, { 
+    await sendLongMarkdownMessage(bot, chatId, response, {
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
@@ -952,12 +953,12 @@ const handleSkipCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    bot.sendMessage(chatId, `✅ 成功删除ID为 ${id}${isPaymentId ? '!' : ''} 的交易记录，所有金额已重新计算。`, { 
+    await bot.sendMessage(chatId, `✅ 成功删除ID为 ${id}${isPaymentId ? '!' : ''} 的交易记录，所有金额已重新计算。`, { 
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
     
-    bot.sendMessage(chatId, response, { 
+    await sendLongMarkdownMessage(bot, chatId, response, {
       parse_mode: 'Markdown',
       reply_markup: keyboard
     });
