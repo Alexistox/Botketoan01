@@ -4,7 +4,7 @@
  * @param {String} format - Loại format ('default' hoặc 'formatted')
  * @returns {String} - Chuỗi đã định dạng
  */
-const formatSmart = (num, format = 'default') => {
+const formatSmart = (num, format = 'formatted') => {
   if (format === 'formatted') {
     return formatNumberWithCommas(num);
   }
@@ -750,15 +750,15 @@ const getUserNumberFormat = async (userId, chatId) => {
     const User = require('../models/User');
     const user = await User.findOne({ userId: userId.toString() });
     
-    if (!user) return 'default';
+    if (!user) return 'formatted';
     
     // Tìm cài đặt cho nhóm cụ thể
     const groupSetting = user.groupPermissions.find(gp => gp.chatId === chatId.toString());
     
-    return groupSetting ? groupSetting.numberFormat : 'default';
+    return groupSetting ? groupSetting.numberFormat : 'formatted';
   } catch (error) {
     console.error('Error getting user number format:', error);
-    return 'default';
+    return 'formatted';
   }
 };
 
@@ -770,10 +770,10 @@ const getGroupNumberFormat = async (chatId) => {
     const Group = require('../models/Group');
     const group = await Group.findOne({ chatId: chatId.toString() });
     
-    return group ? group.numberFormat : 'default';
+    return group ? group.numberFormat : 'formatted';
   } catch (error) {
     console.error('Error getting group number format:', error);
-    return 'default';
+    return 'formatted';
   }
 };
 
@@ -783,7 +783,7 @@ const getGroupNumberFormat = async (chatId) => {
  * @param {String} numberFormat - Định dạng số ('default' hoặc 'formatted')
  * @returns {String} - Chuỗi đã định dạng
  */
-const formatTelegramMessage = (jsonData, numberFormat = 'default') => {
+const formatTelegramMessage = (jsonData, numberFormat = 'formatted') => {
   let output = '';
   
   // Date header - using US format (MM/DD/YYYY)
@@ -863,7 +863,7 @@ const formatTelegramMessage = (jsonData, numberFormat = 'default') => {
 /**
  * Format tin nhắn Telegram với thông tin đầy đủ bao gồm 出款费率 và 出款汇率
  */
-const formatWithdrawRateMessage = (jsonData, numberFormat = 'default') => {
+const formatWithdrawRateMessage = (jsonData, numberFormat = 'formatted') => {
   let output = '';
   
   // Date header - using US format (MM/DD/YYYY)

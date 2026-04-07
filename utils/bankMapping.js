@@ -6,12 +6,17 @@ const bankMapping = {
   // Ngân hàng TMCP Công thương Việt Nam
   'VietinBank': '970415',
   'Vietin': '970415',
+  'Vietin bank': '970415',
+  'ViettinBank': '970415',
+  'Viettin': '970415',
   'ICB': '970415',
   
   // Ngân hàng TMCP Ngoại Thương Việt Nam
   'Vietcombank': '970436',
   'VCB': '970436',
   'Vietcom': '970436',
+  'Vietcom bank': '970436',
+  'Vietcombankk': '970436',
   
   // Ngân hàng TMCP Đầu tư và Phát triển Việt Nam
   'BIDV': '970418',
@@ -35,7 +40,9 @@ const bankMapping = {
   'Techcombank': '970407',
   'TCB': '970407',
   'Ky Thuong': '970407',
-  
+  'Techcom bank': '970407',
+  'Techcombankk': '970407',
+  'Techcom': '970407',
   // Ngân hàng TMCP Á Châu
   'ACB': '970416',
   'A Chau': '970416',
@@ -297,6 +304,16 @@ const bankMapping = {
  * @param {String} bankName - Tên ngân hàng
  * @returns {String|null} - Mã bank code hoặc null nếu không tìm thấy
  */
+/** Chuẩn hóa để so khớp tên gõ sai / thừa khoảng trắng (không dấu, bỏ ký tự không phải chữ số Latin) */
+const normalizeBankSearch = (s) =>
+  String(s || '')
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/[^a-z0-9]/g, '');
+
 const findBankCode = (bankName) => {
   if (!bankName) return null;
   
@@ -314,6 +331,16 @@ const findBankCode = (bankName) => {
   for (const [key, value] of Object.entries(bankMapping)) {
     if (key.toLowerCase().includes(normalizedName) || normalizedName.includes(key.toLowerCase())) {
       return value;
+    }
+  }
+
+  // Khớp sau khi bỏ dấu / khoảng (ví dụ "Vietin Bank" ≈ "VietinBank")
+  const normInput = normalizeBankSearch(bankName);
+  if (normInput.length >= 3) {
+    for (const [key, value] of Object.entries(bankMapping)) {
+      if (normalizeBankSearch(key) === normInput) {
+        return value;
+      }
     }
   }
   

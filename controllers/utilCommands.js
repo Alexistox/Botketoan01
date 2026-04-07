@@ -258,7 +258,7 @@ const handleReportCommand = async (bot, chatId, senderName, userId = null) => {
     }
     
     // Lấy format của người dùng nếu có userId
-    const userFormat = userId ? await getGroupNumberFormat(chatId) : 'default';
+    const userFormat = userId ? await getGroupNumberFormat(chatId) : 'formatted';
     
     // Format và gửi tin nhắn - sử dụng formatter phù hợp
     const response = hasWithdrawRate ? 
@@ -363,8 +363,8 @@ const handleHelpCommand = async (bot, chatId) => {
 
 -------------------------
 *数字格式设置:*
-/format A - 切换到格式化显示 (1,000,000.00) [全群生效]
-/format - 切换到默认显示 (1000000) [全群生效]
+/format A - 格式化显示 (1,000,000.00)，与机器人默认相同 [全群生效]
+/format - 简单显示 (1000000)，无千分位分隔 [全群生效]
 
 -------------------------
 *其他功能:*
@@ -470,8 +470,8 @@ const handleHelp2Command = async (bot, chatId) => {
 
 ━━━━━━━━━━━━━━━━━━
 *10) Định dạng số*
-- \`/format A\`: bật format có phân tách (vd: 1,000,000.00)
-- \`/format\`: về format mặc định
+- \`/format A\`: format có phân tách (vd: 1,000,000.00) — trùng mặc định bot
+- \`/format\`: số thuần không phân tách nghìn (vd: 1000000)
 
 ━━━━━━━━━━━━━━━━━━
 *11) Broadcast nhóm/tin đã lưu (Operator)*
@@ -544,22 +544,22 @@ const handleFormatCommand = async (bot, msg) => {
     }
     
     if (messageText === '/format') {
-      // Quay về format mặc định cho cả nhóm
+      // Kiểu số thuần (không phân tách nghìn) — khác với mặc định bot (formatted)
       group.numberFormat = 'default';
       await group.save();
-      bot.sendMessage(chatId, "✅ 本群已切换到默认数字格式 (例: 1000000) - 对所有成员生效");
+      bot.sendMessage(chatId, "✅ 本群已切换到简单数字格式 (例: 1000000) - 对所有成员生效");
     } else if (messageText === '/format A') {
-      // Chuyển sang format có dấu phẩy cho cả nhóm
+      // Giống mặc định bot: có dấu phẩy phần nghìn
       group.numberFormat = 'formatted';
       await group.save();
       bot.sendMessage(chatId, "✅ 本群已切换到格式化数字格式 (例: 1,000,000.00) - 对所有成员生效");
     } else {
       // Hiển thị trợ giúp
-      const currentFormat = group.numberFormat === 'formatted' ? '格式化显示' : '默认显示';
+      const currentFormat = group.numberFormat === 'formatted' ? '格式化显示 (默认)' : '简单显示';
       bot.sendMessage(chatId, 
         "🔢 *数字格式设置 (对全群生效):*\n\n" +
-        "/format A - 切换到格式化显示 (1,000,000.00) [全群生效]\n" +
-        "/format - 切换到默认显示 (1000000) [全群生效]\n\n" +
+        "/format A - 格式化显示 (1,000,000.00)，与机器人默认相同 [全群生效]\n" +
+        "/format - 简单显示 (1000000)，无千分位分隔 [全群生效]\n\n" +
         "本群当前格式: " + currentFormat,
         { parse_mode: 'Markdown' }
       );

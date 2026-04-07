@@ -820,13 +820,6 @@ const handleMessage = async (bot, msg, cache) => {
       }
     }
     
-    // Xử lý địa chỉ TRC20
-    if (isTrc20Address(messageText.trim())) {
-      // Gửi địa chỉ TRC20 dạng markdown
-      bot.sendMessage(chatId, `TRC20地址:\n\`${messageText.trim()}\``, { parse_mode: 'Markdown' });
-      return;
-    }
-    
     // Thêm xử lý media + caption cho lệnh /usdt
     if ((msg.photo || msg.video || msg.animation || msg.sticker) && msg.caption && msg.caption.match(/^T.{33}$/)) {
       // Nếu caption là địa chỉ USDT hợp lệ

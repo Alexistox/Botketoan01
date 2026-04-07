@@ -59,7 +59,7 @@ const GroupSchema = new mongoose.Schema({
   numberFormat: {
     type: String,
     enum: ['default', 'formatted'],
-    default: 'default'
+    default: 'formatted'
   },
   lastClearDate: {
     type: Date,

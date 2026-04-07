@@ -48,7 +48,7 @@ const UserSchema = new mongoose.Schema({
     numberFormat: {
       type: String,
       enum: ['default', 'formatted'],
-      default: 'default'
+      default: 'formatted'
     }
   }]
 }, { timestamps: true });

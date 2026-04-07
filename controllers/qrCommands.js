@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { findBankCode } = require('../utils/bankMapping');
 const { parseSpecialNumber, formatSmart } = require('../utils/formatter');
+const { parseBankInfoFromLabels } = require('../utils/qrBankKeywords');
 
 /**
  * Xử lý lệnh bật/tắt chức năng QR (/qr on/off)
@@ -99,9 +100,9 @@ const isQrModeEnabled = async (chatId) => {
 };
 
 /**
- * Parse thông tin ngân hàng từ tin nhắn (hỗ trợ thứ tự linh hoạt)
+ * Parse thông tin ngân hàng — heuristic theo dòng (không có nhãn key:value)
  */
-const parseBankInfo = (messageText) => {
+const parseBankInfoHeuristic = (messageText) => {
   const lines = messageText.split('\n').map(line => line.trim()).filter(line => line);
   
   if (lines.length < 3) {
@@ -113,12 +114,28 @@ const parseBankInfo = (messageText) => {
   let bankName = '';
   let amount = 0;
   let note = '';
-  
-  // Bước 1: Tìm số tài khoản (chỉ chứa số và có độ dài >= 8)
+
+  const isStkLabeledLine = (line) =>
+    /^(stk|số\s*tk|so\s*tk|số\s*tài\s*khoản|so\s*tai\s*khoan)\s+/i.test(line);
+
+  // Bước 1a: STK từ dòng "stk 2349785" (tránh lấy số tiền làm STK)
   for (const line of lines) {
-    if (/^\d{8,}$/.test(line)) {
-      accountNumber = line;
+    const m = line.match(/^(stk|số\s*tk|so\s*tk|số\s*tài\s*khoản|so\s*tai\s*khoan)\s+(.+)$/i);
+    if (!m) continue;
+    const digits = m[2].replace(/\D/g, '');
+    if (digits.length >= 6 && digits.length <= 16) {
+      accountNumber = digits;
       break;
+    }
+  }
+
+  // Bước 1b: Dòng chỉ chứa số (fallback)
+  if (!accountNumber) {
+    for (const line of lines) {
+      if (/^\d{6,16}$/.test(line)) {
+        accountNumber = line;
+        break;
+      }
     }
   }
   
@@ -134,9 +151,10 @@ const parseBankInfo = (messageText) => {
   // Bước 3: Tìm số tiền (chứa số và có thể có dấu phẩy/chấm, nhưng không phải số tài khoản)
   for (const line of lines) {
     if (line === accountNumber) continue; // Bỏ qua số tài khoản
-    
+    if (isStkLabeledLine(line)) continue; // Không lấy "stk ..." làm số tiền
+
     // Kiểm tra xem có phải số tiền không (có chứa dấu phẩy, chấm, hoặc ký tự đặc biệt)
-    if (/[,\d]/.test(line) && !/^\d{8,}$/.test(line)) {
+    if (/[,\d]/.test(line) && !/^\d{6,16}$/.test(line)) {
       const parsedAmount = parseSpecialNumber(line);
       if (!isNaN(parsedAmount) && parsedAmount > 0) {
         amount = parsedAmount;
@@ -148,9 +166,10 @@ const parseBankInfo = (messageText) => {
   // Bước 4: Tìm tên chủ tài khoản và ghi chú
   const remainingLines = lines.filter(line => {
     if (line === accountNumber || line === bankName) return false;
-    
+    if (isStkLabeledLine(line)) return false;
+
     // Kiểm tra xem có phải số tiền không
-    if (/[,\d]/.test(line) && !/^\d{8,}$/.test(line)) {
+    if (/[,\d]/.test(line) && !/^\d{6,16}$/.test(line)) {
       const parsedAmount = parseSpecialNumber(line);
       if (!isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount === amount) {
         return false;
@@ -179,6 +198,17 @@ const parseBankInfo = (messageText) => {
     amount,
     note
   };
+};
+
+/**
+ * Parse thông tin ngân hàng: ưu tiên nhãn key:value đa ngôn ngữ, sau đó heuristic theo dòng.
+ */
+const parseBankInfo = (messageText) => {
+  const fromLabels = parseBankInfoFromLabels(messageText);
+  if (fromLabels) {
+    return fromLabels;
+  }
+  return parseBankInfoHeuristic(messageText);
 };
 
 /**
@@ -320,5 +350,6 @@ module.exports = {
   isQrModeEnabled,
   handleQrMessage,
   parseBankInfo,
+  parseBankInfoHeuristic,
   generateQRCode
 };
