@@ -311,31 +311,21 @@ const handlePicModeReply = async (bot, msg, replyNumber) => {
     
     if (moneyAmount && moneyAmount > 0) {
       // Xác định lệnh dựa trên reply number
-      let commandText, commandName;
+      let commandText;
       switch (replyNumber) {
         case '1':
           commandText = `+${moneyAmount}`;
-          commandName = '+';
           break;
         case '2':
           commandText = `%${moneyAmount}`;
-          commandName = '%';
           break;
         case '3':
           commandText = `-${moneyAmount}`;
-          commandName = '-';
           break;
         default:
           return;
       }
-      
-      // Import formatter để hiển thị số tiền có dấu phân cách
-      const { formatSmart } = require('../utils/formatter');
-      
-      // Gửi tin nhắn thông báo trích xuất thành công
-      const extractionMessage = `✅ 已提取金额：${formatSmart(moneyAmount, 'formatted')}\n🔄 执行指令：${commandName}${formatSmart(moneyAmount, 'formatted')}`;
-      await bot.sendMessage(chatId, extractionMessage);
-      
+
       // messageId giao dịch = tin được reply (ảnh/biên lai); xóa tin "1"/"2"/"3" sau khi lệnh xong
       const fakeMsg = {
         ...msg,

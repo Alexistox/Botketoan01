@@ -90,4 +90,33 @@ const GroupSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+/**
+ * Đã có /d2 (出款费率·汇率) nhưng chưa cấu /d (入款): rate và exchangeRate vẫn 0 → mặc định 0/1.
+ * Giúp +/t/v và báo cáo không bị chặn vì thiếu tỷ giá nhập.
+ */
+function applyDepositDefaultIfD2Only(doc) {
+  if (!doc) return;
+  if (doc.withdrawRate == null || doc.withdrawExchangeRate == null) return;
+  const r = Number(doc.rate) || 0;
+  const ex = Number(doc.exchangeRate) || 0;
+  if (r === 0 && ex === 0) {
+    doc.rate = 0;
+    doc.exchangeRate = 1;
+  }
+}
+
+GroupSchema.pre('save', function applyD2DepositDefault(next) {
+  applyDepositDefaultIfD2Only(this);
+  next();
+});
+
+GroupSchema.post('findOne', function applyD2DepositDefaultOnFindOne(doc) {
+  applyDepositDefaultIfD2Only(doc);
+});
+
+GroupSchema.post('find', function applyD2DepositDefaultOnFind(docs) {
+  if (!docs || !docs.length) return;
+  docs.forEach(applyDepositDefaultIfD2Only);
+});
+
 module.exports = mongoose.model('Group', GroupSchema); 

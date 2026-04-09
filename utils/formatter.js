@@ -80,6 +80,38 @@ const coerceReportNumber = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
+const escapeTelegramMarkdownLinkText = (text) =>
+  String(text)
+    .replace(/\\/g, '\\\\')
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/`/g, '\\`');
+
+const escapeTelegramMarkdownCodeContent = (text) => String(text).replace(/`/g, "'");
+
+/**
+ * Tên người gửi trong báo cáo (Markdown): bấm mở profile Telegram.
+ * Ưu tiên tg://user?id=; không có id thì https://t.me/username; không thì `code` như cũ.
+ */
+const formatSenderForReportMarkdown = (displayName, telegramUserId, telegramUsername) => {
+  const raw = displayName == null ? '' : String(displayName).trim();
+  const label = raw || '用户';
+
+  if (telegramUserId != null && telegramUserId !== '') {
+    const idNum = typeof telegramUserId === 'number' ? telegramUserId : parseInt(String(telegramUserId), 10);
+    if (Number.isFinite(idNum) && idNum > 0) {
+      return `[${escapeTelegramMarkdownLinkText(label)}](tg://user?id=${idNum})`;
+    }
+  }
+  const u = telegramUsername && String(telegramUsername).replace(/^@/, '');
+  if (u && /^[a-zA-Z0-9_]{5,32}$/.test(u)) {
+    return `[${escapeTelegramMarkdownLinkText(label)}](https://t.me/${u})`;
+  }
+  return `\`${escapeTelegramMarkdownCodeContent(label)}\``;
+};
+
 /**
  * Kiểm tra xem chuỗi có phải biểu thức toán học hợp lệ không
  * @param {String} msg - Chuỗi cần kiểm tra
@@ -791,6 +823,19 @@ const getGroupNumberFormat = async (chatId) => {
 };
 
 /**
+ * Marker Markdown (legacy) cho dòng giao dịch mới nhất trong báo cáo.
+ */
+const newestEntryMarker = (isNewest) => (isNewest ? '*📌* ' : '');
+
+/**
+ * Chèn marker ngay sau `` `HH:MM:SS` `` (trước số tiền / phần còn lại của details).
+ */
+const insertNewestMarkerAfterTime = (details, marker) => {
+  if (!marker || !details) return details || '';
+  return details.replace(/^(`[^`]+`)(\s*)/, '$1$2' + marker);
+};
+
+/**
  * Tạo tin nhắn telegram không sử dụng markdown
  * @param {Object} jsonData - Dữ liệu cần format
  * @param {String} numberFormat - Định dạng số ('default' hoặc 'formatted')
@@ -813,12 +858,12 @@ const formatTelegramMessage = (jsonData, numberFormat = 'formatted') => {
     jsonData.depositData.entries.forEach((entry, index) => {
       // Sử dụng ID từ entry thay vì tạo ID mới
       const id = entry.id || (entry.index + 1);
-      const isNewest = index === 0; // Giao dịch đầu tiên là mới nhất
-      const fireEmoji = isNewest ? '🟢 ' : '';
+      const newestMarker = newestEntryMarker(index === 0);
       
       if (entry.messageId && entry.chatLink) {
         // Tạo link đến tin nhắn gốc với ID là phần clickable
-        output += `${entry.details} ${fireEmoji}(id[${id}](${entry.chatLink}))\n`;
+        const line = insertNewestMarkerAfterTime(entry.details, newestMarker);
+        output += `${line} (id[${id}](${entry.chatLink}))\n`;
       }
     });
     output += '\n';
@@ -836,12 +881,12 @@ const formatTelegramMessage = (jsonData, numberFormat = 'formatted') => {
       // Dùng ký hiệu ! trước ID của payment
       // Sử dụng ID từ entry thay vì tạo ID mới
       const id = `!${entry.id || (entry.index + 1)}`;
-      const isNewest = index === 0; // Giao dịch đầu tiên là mới nhất
-      const fireEmoji = isNewest ? '🟢 ' : '';
+      const newestMarker = newestEntryMarker(index === 0);
       
       if (entry.messageId && entry.chatLink) {
         // Tạo link đến tin nhắn gốc với ID là phần clickable
-        output += `${entry.details} ${fireEmoji}([${id}](${entry.chatLink}))\n`;
+        const line = insertNewestMarkerAfterTime(entry.details, newestMarker);
+        output += `${line} ([${id}](${entry.chatLink}))\n`;
       }
     });
     output += '\n';
@@ -891,11 +936,11 @@ const formatWithdrawRateMessage = (jsonData, numberFormat = 'formatted') => {
     
     jsonData.depositData.entries.forEach((entry, index) => {
       const id = entry.id || (entry.index + 1);
-      const isNewest = index === 0; // Giao dịch đầu tiên là mới nhất
-      const fireEmoji = isNewest ? '🟢 ' : '';
+      const newestMarker = newestEntryMarker(index === 0);
       
       if (entry.messageId && entry.chatLink) {
-        output += `${entry.details} ${fireEmoji}(id[${id}](${entry.chatLink}))\n`;
+        const line = insertNewestMarkerAfterTime(entry.details, newestMarker);
+        output += `${line} (id[${id}](${entry.chatLink}))\n`;
       }
     });
     output += '\n';
@@ -910,11 +955,11 @@ const formatWithdrawRateMessage = (jsonData, numberFormat = 'formatted') => {
     
     jsonData.paymentData.entries.forEach((entry, index) => {
       const id = `!${entry.id || (entry.index + 1)}`;
-      const isNewest = index === 0; // Giao dịch đầu tiên là mới nhất
-      const fireEmoji = isNewest ? '🟢 ' : '';
+      const newestMarker = newestEntryMarker(index === 0);
       
       if (entry.messageId && entry.chatLink) {
-        output += `${entry.details} ${fireEmoji}([${id}](${entry.chatLink}))\n`;
+        const line = insertNewestMarkerAfterTime(entry.details, newestMarker);
+        output += `${line} ([${id}](${entry.chatLink}))\n`;
       }
     });
     output += '\n';
@@ -968,6 +1013,7 @@ module.exports = {
   isTrc20Address,
   formatTelegramMessage,
   formatWithdrawRateMessage,
+  formatSenderForReportMarkdown,
   formatDateUS,
   formatTimeString,
   getUserNumberFormat,

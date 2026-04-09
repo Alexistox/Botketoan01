@@ -2,7 +2,7 @@ const Group = require('../models/Group');
 const Transaction = require('../models/Transaction');
 const Card = require('../models/Card');
 const Config = require('../models/Config');
-const { formatSmart, formatRateValue, formatTelegramMessage, formatWithdrawRateMessage, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
+const { formatSmart, formatRateValue, formatTelegramMessage, formatWithdrawRateMessage, formatSenderForReportMarkdown, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
 const { getDepositHistory, getPaymentHistory, getCardSummary } = require('./groupCommands');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
 const { sendLongMarkdownMessage } = require('../utils/telegramChunks');
@@ -19,12 +19,26 @@ const maybeDeleteReplyTriggerMessage = async (bot, chatId, msg) => {
 };
 
 /**
+ * Pic/bank: fakeMsg.message_id = tin gốc (trùng id trong báo cáo). Chỉ dùng cho báo cáo, không gửi tin “已提取金额”.
+ */
+const replyToSourceBillOpts = (msg) => {
+  if (msg._deleteReplyTriggerMessageId == null) return {};
+  const id = msg.message_id;
+  const n = typeof id === 'number' ? id : parseInt(String(id), 10);
+  if (!Number.isFinite(n)) return {};
+  return { reply_to_message_id: n };
+};
+
+/**
  * Xử lý lệnh thêm tiền (+)
  */
 const handlePlusCommand = async (bot, msg) => {
   try {
     const chatId = msg.chat.id;
     const senderName = msg.from.first_name;
+    const senderTgId = msg.from?.id;
+    const senderUsername = msg.from?.username || null;
+    const senderMd = formatSenderForReportMarkdown(senderName, senderTgId, senderUsername);
     const messageText = msg.text;
     const messageId = msg.message_id.toString();
     
@@ -125,7 +139,8 @@ const handlePlusCommand = async (bot, msg) => {
       
       await sendLongMarkdownMessage(bot, chatId, response, {
         parse_mode: 'Markdown',
-        reply_markup: keyboard
+        reply_markup: keyboard,
+        ...replyToSourceBillOpts(msg)
       });
       await maybeDeleteReplyTriggerMessage(bot, chatId, msg);
       return;
@@ -162,9 +177,9 @@ const handlePlusCommand = async (bot, msg) => {
     let details;
     const rateDisplay = rateFactor === '1.00' ? '/' : `\\*${rateFactor}/`;
     if (cardCode) {
-      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} (${cardCode}) \`${senderName}\``;
+      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} (${cardCode}) ${senderMd}`;
     } else {
-      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} \`${senderName}\``;
+      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} ${senderMd}`;
     }
     
     // Lưu giao dịch mới
@@ -176,6 +191,8 @@ const handlePlusCommand = async (bot, msg) => {
       message: messageText,
       details,
       senderName,
+      senderId: senderTgId != null ? String(senderTgId) : null,
+      senderUsername: senderUsername || '',
       cardCode,
       limit: cardLimit,
       rate: xValue,
@@ -263,7 +280,8 @@ const handlePlusCommand = async (bot, msg) => {
     
     await sendLongMarkdownMessage(bot, chatId, response, {
       parse_mode: 'Markdown',
-      reply_markup: keyboard
+      reply_markup: keyboard,
+      ...replyToSourceBillOpts(msg)
     });
     await maybeDeleteReplyTriggerMessage(bot, chatId, msg);
     
@@ -280,6 +298,9 @@ const handleMinusCommand = async (bot, msg) => {
   try {
     const chatId = msg.chat.id;
     const senderName = msg.from.first_name;
+    const senderTgId = msg.from?.id;
+    const senderUsername = msg.from?.username || null;
+    const senderMd = formatSenderForReportMarkdown(senderName, senderTgId, senderUsername);
     const messageText = msg.text;
     const messageId = msg.message_id.toString();
     
@@ -380,9 +401,9 @@ const handleMinusCommand = async (bot, msg) => {
     const operator = useWithdrawRate ? '+' : '-';
     const rateDisplay = rateFactor === '1.00' ? '/' : `\\*${rateFactor}/`;
     if (cardCode) {
-      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} (${cardCode}) \`${senderName}\``;
+      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} (${cardCode}) ${senderMd}`;
     } else {
-      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} \`${senderName}\``;
+      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} ${senderMd}`;
     }
     // Lưu giao dịch mới
     const transaction = new Transaction({
@@ -393,6 +414,8 @@ const handleMinusCommand = async (bot, msg) => {
       message: messageText,
       details,
       senderName,
+      senderId: senderTgId != null ? String(senderTgId) : null,
+      senderUsername: senderUsername || '',
       cardCode,
       rate: xValue,
       exchangeRate: yValue,
@@ -487,7 +510,8 @@ const handleMinusCommand = async (bot, msg) => {
     
     await sendLongMarkdownMessage(bot, chatId, response, {
       parse_mode: 'Markdown',
-      reply_markup: keyboard
+      reply_markup: keyboard,
+      ...replyToSourceBillOpts(msg)
     });
     await maybeDeleteReplyTriggerMessage(bot, chatId, msg);
     
@@ -504,6 +528,9 @@ const handlePercentCommand = async (bot, msg) => {
   try {
     const chatId = msg.chat.id;
     const senderName = msg.from.first_name;
+    const senderTgId = msg.from?.id;
+    const senderUsername = msg.from?.username || null;
+    const senderMd = formatSenderForReportMarkdown(senderName, senderTgId, senderUsername);
     const messageText = msg.text;
     const messageId = msg.message_id.toString();
     
@@ -590,9 +617,9 @@ const handlePercentCommand = async (bot, msg) => {
     // Tạo chi tiết giao dịch
     let details;
     if (cardCode) {
-      details = `\`${formatTimeString(new Date())}\`    *${formatSmart(payUSDT, userFormat)}*  ${currencyUnit} (${cardCode})`;
+      details = `\`${formatTimeString(new Date())}\`    *${formatSmart(payUSDT, userFormat)}*  ${currencyUnit} (${cardCode}) ${senderMd}`;
     } else {
-      details = `\`${formatTimeString(new Date())}\`    *${formatSmart(payUSDT, userFormat)}*  ${currencyUnit}`;
+      details = `\`${formatTimeString(new Date())}\`    *${formatSmart(payUSDT, userFormat)}*  ${currencyUnit} ${senderMd}`;
     }
     
     // Lưu giao dịch mới
@@ -603,6 +630,8 @@ const handlePercentCommand = async (bot, msg) => {
       message: messageText,
       details,
       senderName,
+      senderId: senderTgId != null ? String(senderTgId) : null,
+      senderUsername: senderUsername || '',
       cardCode,
       rate: group.rate,
       exchangeRate: group.exchangeRate,
@@ -680,7 +709,8 @@ const handlePercentCommand = async (bot, msg) => {
     
     await sendLongMarkdownMessage(bot, chatId, response, {
       parse_mode: 'Markdown',
-      reply_markup: keyboard
+      reply_markup: keyboard,
+      ...replyToSourceBillOpts(msg)
     });
     await maybeDeleteReplyTriggerMessage(bot, chatId, msg);
     

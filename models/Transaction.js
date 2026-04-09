@@ -31,6 +31,14 @@ const TransactionSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  senderId: {
+    type: String,
+    default: null
+  },
+  senderUsername: {
+    type: String,
+    default: ''
+  },
   message: {
     type: String,
     default: ''
