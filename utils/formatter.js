@@ -68,6 +68,19 @@ const formatRateValue = (num) => {
 };
 
 /**
+ * Chuyển giá trị báo cáo (số thô hoặc chuỗi đã format có dấu phẩy nghìn) sang số.
+ * parseFloat("5,186,000") chỉ được 5 — gây sai tổng 总入款/总出款.
+ */
+const coerceReportNumber = (value) => {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const s = String(value).replace(/,/g, '').trim();
+  if (s === '') return 0;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/**
  * Kiểm tra xem chuỗi có phải biểu thức toán học hợp lệ không
  * @param {String} msg - Chuỗi cần kiểm tra
  * @returns {Boolean} - true nếu là biểu thức toán học
@@ -835,22 +848,22 @@ const formatTelegramMessage = (jsonData, numberFormat = 'formatted') => {
   } else {
     output += "*已下发*(0笔):\n\n";
   }
-  output += `总入款💰: ${formatSmart(parseFloat(jsonData.totalAmount) || 0, numberFormat)}\n`;
+  output += `总入款💰: ${formatSmart(coerceReportNumber(jsonData.totalAmount), numberFormat)}\n`;
   // Rate information
   const rateInfo = `费率： ${jsonData.rate}\n汇率： ${jsonData.exchangeRate}\n`;
  
   // Thêm ví dụ nếu có
   let rateInfoWithExample = rateInfo;
   if (jsonData.example) {
-    rateInfoWithExample += `\n例如: 100000 = ${formatSmart(parseFloat(jsonData.example) || 0, numberFormat)} ${jsonData.currencyUnit || 'USDT'}`;
+    rateInfoWithExample += `\n例如: 100000 = ${formatSmart(coerceReportNumber(jsonData.example), numberFormat)} ${jsonData.currencyUnit || 'USDT'}`;
   }
   
   output += `${rateInfoWithExample}\n`;
   
   // Summary section
-  output += `应下发 : ${formatSmart(parseFloat(jsonData.totalUSDT) || 0, numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
-  output += `已下发 : ${formatSmart(parseFloat(jsonData.paidUSDT) || 0, numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
-  output += `未下发 : ${formatSmart(parseFloat(jsonData.remainingUSDT) || 0, numberFormat)}  ${jsonData.currencyUnit || 'USDT'}`;
+  output += `应下发 : ${formatSmart(coerceReportNumber(jsonData.totalUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
+  output += `已下发 : ${formatSmart(coerceReportNumber(jsonData.paidUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
+  output += `未下发 : ${formatSmart(coerceReportNumber(jsonData.remainingUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}`;
   
   // Cards section (if present)
   if (jsonData.cards && jsonData.cards.length > 0) {
@@ -910,8 +923,8 @@ const formatWithdrawRateMessage = (jsonData, numberFormat = 'formatted') => {
   }
   
   // Thống kê chi tiết  
-  output += `总入款: ${formatSmart(parseFloat(jsonData.totalDepositVND) || 0, numberFormat)}|  ${formatSmart(parseFloat(jsonData.totalDepositUSDT) || 0, numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
-  output += `总出款: ${formatSmart(parseFloat(jsonData.totalWithdrawVND) || 0, numberFormat)}|  ${formatSmart(parseFloat(jsonData.totalWithdrawUSDT) || 0, numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
+  output += `总入款: ${formatSmart(coerceReportNumber(jsonData.totalDepositVND), numberFormat)}|  ${formatSmart(coerceReportNumber(jsonData.totalDepositUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
+  output += `总出款: ${formatSmart(coerceReportNumber(jsonData.totalWithdrawVND), numberFormat)}|  ${formatSmart(coerceReportNumber(jsonData.totalWithdrawUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
   
   // Rate information
   output += `入款费率：${jsonData.rate} | 入款汇率：${jsonData.exchangeRate}\n`;
@@ -919,13 +932,13 @@ const formatWithdrawRateMessage = (jsonData, numberFormat = 'formatted') => {
   
   // Ví dụ cho 出款
   if (jsonData.withdrawExample) {
-    output += `例如出款: 100000 = ${formatSmart(parseFloat(jsonData.withdrawExample) || 0, numberFormat)} ${jsonData.currencyUnit || 'USDT'}\n`;
+    output += `例如出款: 100000 = ${formatSmart(coerceReportNumber(jsonData.withdrawExample), numberFormat)} ${jsonData.currencyUnit || 'USDT'}\n`;
   }
   
   // Tính toán số liệu mới
-  const totalDepositUSDT = parseFloat(jsonData.totalDepositUSDT) || 0;
-  const totalWithdrawUSDT = parseFloat(jsonData.totalWithdrawUSDT) || 0;
-  const paidUSDT = parseFloat(jsonData.paidUSDT) || 0;
+  const totalDepositUSDT = coerceReportNumber(jsonData.totalDepositUSDT);
+  const totalWithdrawUSDT = coerceReportNumber(jsonData.totalWithdrawUSDT);
+  const paidUSDT = coerceReportNumber(jsonData.paidUSDT);
   const shouldPayUSDT = totalDepositUSDT - totalWithdrawUSDT; // 应下发 = usdt总入款 - usdt总出款
   const unpaidUSDT = shouldPayUSDT - paidUSDT; // 未下发 = 应下发 - 已下发
   
