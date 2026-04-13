@@ -4,6 +4,10 @@ const path = require('path');
 const { extractBankInfoFromImage, extractMoneyAmountFromImage } = require('../utils/openai');
 const { getDownloadLink } = require('../utils/telegramUtils');
 const { extractMoneyFromText, extractMoneyFromBankNotification } = require('../utils/textParser');
+const {
+  sendAndRegisterEphemeralError,
+  registerEphemeralBotError
+} = require('../utils/ephemeralBotMessages');
 
 /**
  * Xử lý lệnh trích xuất thông tin ngân hàng từ ảnh
@@ -23,7 +27,7 @@ const handleImageBankInfo = async (bot, msg) => {
     const downloadUrl = await getDownloadLink(photoFileId, process.env.TELEGRAM_BOT_TOKEN);
     
     if (!downloadUrl) {
-      bot.sendMessage(chatId, "❌ 无法获取图片文件信息.");
+      await sendAndRegisterEphemeralError(bot, chatId, "❌ 无法获取图片文件信息.");
       return;
     }
     
@@ -52,11 +56,11 @@ const handleImageBankInfo = async (bot, msg) => {
       
       bot.sendMessage(chatId, formattedMessage);
     } else {
-      bot.sendMessage(chatId, "❌ 无法从该图片识别出银行账户信息.");
+      await sendAndRegisterEphemeralError(bot, chatId, "❌ 无法从该图片识别出银行账户信息.");
     }
   } catch (error) {
     console.error('Error in handleImageBankInfo:', error);
-    bot.sendMessage(msg.chat.id, "处理图片时出错，请重试。");
+    await sendAndRegisterEphemeralError(bot, msg.chat.id, "处理图片时出错，请重试。");
   }
 };
 
@@ -69,7 +73,7 @@ const handleReplyImageBankInfo = async (bot, msg) => {
     
     // Kiểm tra nếu tin nhắn được reply có chứa ảnh
     if (!msg.reply_to_message || !msg.reply_to_message.photo) {
-      bot.sendMessage(chatId, "❌ 请回复一条含有图片的消息。");
+      await sendAndRegisterEphemeralError(bot, chatId, "❌ 请回复一条含有图片的消息。");
       return;
     }
     
@@ -84,7 +88,7 @@ const handleReplyImageBankInfo = async (bot, msg) => {
     const downloadUrl = await getDownloadLink(photoFileId, process.env.TELEGRAM_BOT_TOKEN);
     
     if (!downloadUrl) {
-      bot.sendMessage(chatId, "❌ 无法获取图片文件信息.");
+      await sendAndRegisterEphemeralError(bot, chatId, "❌ 无法获取图片文件信息.");
       return;
     }
     
@@ -113,11 +117,11 @@ const handleReplyImageBankInfo = async (bot, msg) => {
       
       bot.sendMessage(chatId, formattedMessage);
     } else {
-      bot.sendMessage(chatId, "❌ 无法从该图片识别出银行账户信息.");
+      await sendAndRegisterEphemeralError(bot, chatId, "❌ 无法从该图片识别出银行账户信息.");
     }
   } catch (error) {
     console.error('Error in handleReplyImageBankInfo:', error);
-    bot.sendMessage(msg.chat.id, "处理图片时出错，请重试。");
+    await sendAndRegisterEphemeralError(bot, msg.chat.id, "处理图片时出错，请重试。");
   }
 };
 
@@ -134,7 +138,7 @@ const handleBankNotificationReply = async (bot, msg) => {
     
     // Kiểm tra nếu tin nhắn được reply có chứa text
     if (!msg.reply_to_message || !msg.reply_to_message.text) {
-      bot.sendMessage(chatId, );
+      await sendAndRegisterEphemeralError(bot, chatId, "❌ 请回复一条含有文字的消息。");
       return;
     }
     
@@ -179,7 +183,7 @@ const handleBankNotificationReply = async (bot, msg) => {
     
   } catch (error) {
     console.error('Error in handleBankNotificationReply:', error);
-    bot.sendMessage(msg.chat.id, "处理银行通知回复时出错，请重试。");
+    await sendAndRegisterEphemeralError(bot, msg.chat.id, "处理银行通知回复时出错，请重试。");
   }
 };
 
@@ -246,12 +250,20 @@ const isBankNotificationMessage = (text) => {
  * Xử lý reply 1, 2, 3 trong chế độ pic mode
  */
 const handlePicModeReply = async (bot, msg, replyNumber) => {
+  const chatId = msg.chat.id;
+  const tryDeletePicTriggerMessage = async () => {
+    try {
+      await bot.deleteMessage(chatId, msg.message_id);
+    } catch (_) {
+      /* Bot cần quyền xóa; tin có thể quá 48h */
+    }
+  };
+
   try {
-    const chatId = msg.chat.id;
-    
     // Kiểm tra nếu tin nhắn được reply có chứa ảnh hoặc text
     if (!msg.reply_to_message || (!msg.reply_to_message.photo && !msg.reply_to_message.text)) {
-      bot.sendMessage(chatId, "❌ 请回复一条含有图片或文字的消息");
+      await sendAndRegisterEphemeralError(bot, chatId, "❌ 请回复一条含有图片或文字的消息");
+      await tryDeletePicTriggerMessage();
       return;
     }
     
@@ -279,10 +291,12 @@ const handlePicModeReply = async (bot, msg, replyNumber) => {
         const downloadUrl = await getDownloadLink(photoFileId, process.env.TELEGRAM_BOT_TOKEN);
         
         if (!downloadUrl) {
-          bot.editMessageText("❌ 无法获取图片文件信息.", {
+          await bot.editMessageText("❌ 无法获取图片文件信息.", {
             chat_id: chatId,
             message_id: processingMsg.message_id
           });
+          registerEphemeralBotError(chatId, processingMsg.message_id);
+          await tryDeletePicTriggerMessage();
           return;
         }
         
@@ -353,11 +367,13 @@ const handlePicModeReply = async (bot, msg, replyNumber) => {
       
     } else {
       const messageType = msg.reply_to_message.photo ? '图片' : '文字';
-      bot.sendMessage(chatId, `❌ 无法从该${messageType}识别出金额信息。`);
+      await sendAndRegisterEphemeralError(bot, chatId, `❌ 无法从该${messageType}识别出金额信息。`);
+      await tryDeletePicTriggerMessage();
     }
   } catch (error) {
     console.error('Error in handlePicModeReply:', error);
-    bot.sendMessage(msg.chat.id, "处理图片模式回复时出错，请重试。");
+    await sendAndRegisterEphemeralError(bot, msg.chat.id, "处理图片模式回复时出错，请重试。");
+    await tryDeletePicTriggerMessage();
   }
 };
 

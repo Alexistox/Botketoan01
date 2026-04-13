@@ -18,6 +18,7 @@ const Card = require('../models/Card');
 const User = require('../models/User');
 const Config = require('../models/Config');
 const MessageLog = require('../models/MessageLog');
+const { deleteRegisteredEphemeralErrors } = require('../utils/ephemeralBotMessages');
 
 const {
   handleCalculateUsdtCommand,
@@ -71,6 +72,9 @@ const handleMessage = async (bot, msg, cache) => {
     
     // Lấy thông tin cơ bản từ tin nhắn
     const chatId = msg.chat.id;
+    if (msg.from && !msg.from.is_bot) {
+      await deleteRegisteredEphemeralErrors(bot, chatId);
+    }
     const userId = msg.from.id;
     const username = msg.from.username || msg.from.first_name || 'unknown';
     const firstName = msg.from.first_name || '';
