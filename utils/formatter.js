@@ -92,24 +92,12 @@ const escapeTelegramMarkdownLinkText = (text) =>
 const escapeTelegramMarkdownCodeContent = (text) => String(text).replace(/`/g, "'");
 
 /**
- * Tên người gửi trong báo cáo (Markdown): bấm mở profile Telegram.
- * Ưu tiên tg://user?id=; không có id thì https://t.me/username; không thì `code` như cũ.
+ * Tên người gửi trong báo cáo (Markdown): chỉ chữ, không dùng mention/link Telegram.
  */
-const formatSenderForReportMarkdown = (displayName, telegramUserId, telegramUsername) => {
+const formatSenderForReportMarkdown = (displayName, _telegramUserId, _telegramUsername) => {
   const raw = displayName == null ? '' : String(displayName).trim();
   const label = raw || '用户';
-
-  if (telegramUserId != null && telegramUserId !== '') {
-    const idNum = typeof telegramUserId === 'number' ? telegramUserId : parseInt(String(telegramUserId), 10);
-    if (Number.isFinite(idNum) && idNum > 0) {
-      return `[${escapeTelegramMarkdownLinkText(label)}](tg://user?id=${idNum})`;
-    }
-  }
-  const u = telegramUsername && String(telegramUsername).replace(/^@/, '');
-  if (u && /^[a-zA-Z0-9_]{5,32}$/.test(u)) {
-    return `[${escapeTelegramMarkdownLinkText(label)}](https://t.me/${u})`;
-  }
-  return `\`${escapeTelegramMarkdownCodeContent(label)}\``;
+  return escapeTelegramMarkdownLinkText(label);
 };
 
 /**

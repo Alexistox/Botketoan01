@@ -344,8 +344,7 @@ const handleHelpCommand = async (bot, chatId) => {
 /help - 查看帮助
 /off - 结束会话
 /u - 查看当前USDT地址 或者 u来u来
-/report - 查看当前群交易报告
-/report -100xxx - 查看指定群报告（需为该群操作员或管理员）
+/report - 查看交易报告
 /ops - 操作员列表 或者 操作人
 
 -------------------------
@@ -568,7 +567,7 @@ const handleHelp2Command = async (bot, chatId) => {
 
 const handleStartCommand = async (bot, chatId) => {
   try {
-    const startMessage = `欢迎使用记账机器人！\n\n开始新账单/ 上课\n记账入账▫️+10000 或者 +数字 [卡号] [额度]\n代付减账▫️-10000\n撤回▫️撤回id\n下发▫️下发 100  或者 %数字 [卡号] [额度]\n设置费率▫️设置汇率1600  或者 \n价格 费率/汇率\n设置操作▫️@群成员  （群成员 必须在设置之前发送消息）\n删除操作▫️@群成员 \n操作人 ▫️ 查看被授权人员名单\n\n+0▫️\n结束| /report（群内）| 私聊/跨群 /report -100群ID（需操作员）`;
+    const startMessage = `欢迎使用记账机器人！\n\n开始新账单/ 上课\n记账入账▫️+10000 或者 +数字 [卡号] [额度]\n代付减账▫️-10000\n撤回▫️撤回id\n下发▫️下发 100  或者 %数字 [卡号] [额度]\n设置费率▫️设置汇率1600  或者 \n价格 费率/汇率\n设置操作▫️@群成员  （群成员 必须在设置之前发送消息）\n删除操作▫️@群成员 \n操作人 ▫️ 查看被授权人员名单\n\n+0▫️\n结束| /report`;
     bot.sendMessage(chatId, startMessage);
   } catch (error) {
     console.error('Error in handleStartCommand:', error);
