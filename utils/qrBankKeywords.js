@@ -11,12 +11,12 @@ function normalizeKey(raw) {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ')
-    .replace(/[：]/g, ':');
+    .replace(/[：；]/g, ':');
 }
 
 /** Có phải dòng key-value không */
 function splitKeyValue(line) {
-  const m = line.match(/^(.+?)[:：]\s*(.*)$/);
+  const m = line.match(/^(.+?)[:：；]\s*(.*)$/);
   if (!m) return null;
   return { key: m[1].trim(), value: m[2].trim() };
 }
@@ -25,6 +25,7 @@ const FIELD_SYNONYMS = {
   account: [
     '账号',
     '帐号',
+    '账户',
     'số tk',
     'so tk',
     'stk',
@@ -52,7 +53,8 @@ const FIELD_SYNONYMS = {
     'holder name',
     'tên chủ tài khoản',
     'ten chu tai khoan',
-    '姓名'
+    '姓名',
+    '名字'
   ],
   bank: [
     '银行名称',
@@ -65,6 +67,7 @@ const FIELD_SYNONYMS = {
   ],
   amount: [
     '金额',
+    '下发',
     'số tiền',
     'so tien',
     'amount',

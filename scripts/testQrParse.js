@@ -41,3 +41,17 @@ const stkSpaceLabels =
   '12000000\n' +
   '5623';
 console.log('stkSpaceLabels', JSON.stringify(parseBankInfo(stkSpaceLabels), null, 2));
+
+const chineseSemicolon =
+  '银行；VietinBank\n' +
+  '名字；NGUYEN QUOC SU\n' +
+  '账户；107005610224\n' +
+  '下发；8453000vnd';
+console.log('chineseSemicolon', JSON.stringify(parseBankInfo(chineseSemicolon), null, 2));
+
+const mixedDelimiters =
+  '银行：Vikki\n' +
+  '名字: VU VAN DOAN\n' +
+  '账号 : 240220014\n' +
+  '下发；14873000vnd';
+console.log('mixedDelimiters', JSON.stringify(parseBankInfo(mixedDelimiters), null, 2));
