@@ -26,6 +26,8 @@ const FIELD_SYNONYMS = {
     '账号',
     '帐号',
     '账户',
+    '银行卡',
+    '銀行卡',
     'số tk',
     'so tk',
     'stk',
@@ -40,6 +42,7 @@ const FIELD_SYNONYMS = {
   ],
   accountName: [
     '持卡人姓名',
+    '持卡人',
     'tên chủ thẻ',
     'ten chu the',
     'tên chủ tk',
@@ -190,8 +193,27 @@ function normalizeAmountRaw(value) {
   return s;
 }
 
+/** Dòng chỉ là nhãn field (vd "银行卡", "持卡人", "银行名称：") — không có value cùng dòng */
+function getExactFieldLabel(line) {
+  const nk = normalizeKey(String(line || '').replace(/[:：；]\s*$/, ''));
+  if (!nk) return null;
+  let best = null;
+  let bestLen = -1;
+  for (const [field, synonyms] of Object.entries(FIELD_SYNONYMS)) {
+    for (const syn of synonyms) {
+      const s = syn.toLowerCase();
+      if (nk === s && s.length > bestLen) {
+        bestLen = s.length;
+        best = field;
+      }
+    }
+  }
+  return best;
+}
+
 /**
- * Parse tin nhắn có nhãn: "key : value", "key：value", hoặc "key value" (cùng dòng).
+ * Parse tin nhắn có nhãn: "key : value", "key：value", "key value" (cùng dòng),
+ * hoặc nhãn / value tách dòng (vd "银行卡" rồi dòng sau là STK).
  * Có thể kèm dòng không nhãn (số tiền + ghi chú) ở cuối.
  */
 function parseBankInfoFromLabels(messageText) {
@@ -234,16 +256,55 @@ function parseBankInfoFromLabels(messageText) {
     }
   };
 
-  for (const line of lines) {
+  const nextLineIsUsableValue = (nextLine) => {
+    if (!nextLine) return false;
+    if (getExactFieldLabel(nextLine)) return false;
+    const nextKv = splitKeyValue(nextLine);
+    if (nextKv && matchField(normalizeKey(nextKv.key))) return false;
+    return true;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     let kv = splitKeyValue(line);
+
+    // "下发：" (value trống) → lấy dòng kế tiếp
+    if (kv && !kv.value) {
+      const field = matchField(normalizeKey(kv.key));
+      if (field) {
+        const next = lines[i + 1];
+        if (nextLineIsUsableValue(next)) {
+          anyLabeled = true;
+          applyField(field, next);
+          i += 1;
+          continue;
+        }
+        // Nhãn hợp lệ nhưng chưa có value — bỏ qua, tránh đưa nhãn vào unlabeled
+        anyLabeled = true;
+        continue;
+      }
+    }
+
     if (!kv) kv = splitKeyValueSpace(line);
 
-    if (kv) {
+    if (kv && kv.value) {
       const nk = normalizeKey(kv.key);
       const field = matchField(nk);
       if (field) {
         anyLabeled = true;
         applyField(field, kv.value);
+        continue;
+      }
+    }
+
+    // Nhãn tách dòng: "银行卡" / "持卡人" / "银行名称"
+    const stackedField = getExactFieldLabel(line);
+    if (stackedField) {
+      const next = lines[i + 1];
+      if (nextLineIsUsableValue(next)) {
+        anyLabeled = true;
+        applyField(stackedField, next);
+        i += 1;
         continue;
       }
     }

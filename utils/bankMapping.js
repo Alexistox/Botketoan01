@@ -316,26 +316,78 @@ const normalizeBankSearch = (s) =>
 
 const findBankCode = (bankName) => {
   if (!bankName) return null;
-  
+
   // Chuẩn hóa tên ngân hàng
   const normalizedName = bankName.trim().toLowerCase();
-  
+  const normInput = normalizeBankSearch(bankName);
+
   // Tìm kiếm exact match
   for (const [key, value] of Object.entries(bankMapping)) {
     if (key.toLowerCase() === normalizedName) {
       return value;
     }
   }
-  
-  // Tìm kiếm partial match
-  for (const [key, value] of Object.entries(bankMapping)) {
-    if (key.toLowerCase().includes(normalizedName) || normalizedName.includes(key.toLowerCase())) {
-      return value;
+
+  // Alias trong ngoặc: "Techcombank (TCB)" / "Techcombank（TCB）" → ưu tiên TCB
+  const parenMatch = String(bankName).match(/[(\uFF08]\s*([^)\uFF09]+)\s*[)\uFF09]/);
+  if (parenMatch) {
+    const alias = parenMatch[1].trim();
+    const aliasLower = alias.toLowerCase();
+    const aliasNorm = normalizeBankSearch(alias);
+    for (const [key, value] of Object.entries(bankMapping)) {
+      if (key.toLowerCase() === aliasLower || normalizeBankSearch(key) === aliasNorm) {
+        return value;
+      }
     }
   }
 
+  // Phần trước ngoặc: "Techcombank (TCB)" → "Techcombank"
+  const beforeParen = String(bankName)
+    .replace(/[(\uFF08][^)\uFF09]*[)\uFF09]/g, '')
+    .trim();
+  if (beforeParen && beforeParen.toLowerCase() !== normalizedName) {
+    for (const [key, value] of Object.entries(bankMapping)) {
+      if (key.toLowerCase() === beforeParen.toLowerCase()) {
+        return value;
+      }
+    }
+    const beforeNorm = normalizeBankSearch(beforeParen);
+    if (beforeNorm.length >= 3) {
+      for (const [key, value] of Object.entries(bankMapping)) {
+        if (normalizeBankSearch(key) === beforeNorm) {
+          return value;
+        }
+      }
+    }
+  }
+
+  // Partial match: ưu tiên synonym dài hơn; alias ngắn (≤3) chỉ khớp theo biên từ
+  // (tránh "MB" khớp nhầm trong "techcoMBank")
+  let bestCode = null;
+  let bestLen = -1;
+  for (const [key, value] of Object.entries(bankMapping)) {
+    const keyLower = key.toLowerCase();
+    let matched = false;
+
+    if (keyLower.length <= 3) {
+      const escaped = keyLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`(?:^|[^a-z0-9])${escaped}(?:[^a-z0-9]|$)`, 'i');
+      matched = re.test(normalizedName);
+    } else if (
+      keyLower.includes(normalizedName) ||
+      normalizedName.includes(keyLower)
+    ) {
+      matched = true;
+    }
+
+    if (matched && keyLower.length > bestLen) {
+      bestLen = keyLower.length;
+      bestCode = value;
+    }
+  }
+  if (bestCode) return bestCode;
+
   // Khớp sau khi bỏ dấu / khoảng (ví dụ "Vietin Bank" ≈ "VietinBank")
-  const normInput = normalizeBankSearch(bankName);
   if (normInput.length >= 3) {
     for (const [key, value] of Object.entries(bankMapping)) {
       if (normalizeBankSearch(key) === normInput) {
@@ -343,7 +395,7 @@ const findBankCode = (bankName) => {
       }
     }
   }
-  
+
   return null;
 };
 

@@ -55,3 +55,16 @@ const mixedDelimiters =
   '账号 : 240220014\n' +
   '下发；14873000vnd';
 console.log('mixedDelimiters', JSON.stringify(parseBankInfo(mixedDelimiters), null, 2));
+
+const stackedChineseLabels =
+  '银行卡\n' +
+  '8353440127\n' +
+  '银行名称\n' +
+  'Techcombank (TCB)\n' +
+  '持卡人\n' +
+  'Nguyễn Thị Minh\n' +
+  '下发： 8453000 VND';
+console.log('stackedChineseLabels', JSON.stringify(parseBankInfo(stackedChineseLabels), null, 2));
+
+const { findBankCode } = require('../utils/bankMapping');
+console.log('bank Techcombank (TCB)', findBankCode('Techcombank (TCB)'));
