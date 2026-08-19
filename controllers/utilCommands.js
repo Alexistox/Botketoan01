@@ -453,7 +453,7 @@ const handleHelp2Command = async (bot, chatId) => {
 - \`/report\` hoặc \`结束\`: báo cáo tổng hợp nhóm hiện tại
 - \`/report -100...\`: báo cáo nhóm khác (operator/admin nhóm đó); ví dụ \`/report -1001234567890\`
 - \`/report1\`: báo cáo chi tiết hơn (Operator)
-- \`/messagelogs\`: link dashboard tin nhắn các nhóm (Admin)
+
 
 ━━━━━━━━━━━━━━━━━━
 *2) Quy đổi & biểu thức*
