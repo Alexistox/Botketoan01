@@ -52,33 +52,41 @@ const logMessage = async (msg, botToken, MessageLog) => {
     const from = msg.from || {};
     
     const messageLog = new MessageLog({
-      groupName: chat.title || '',
+      groupName: chat.title || (chat.type === 'private' ? 'Private' : ''),
       chatId: chat.id ? chat.id.toString() : '',
+      chatType: chat.type || '',
       senderId: from.id ? from.id.toString() : '',
       senderName: `${from.first_name || ''} ${from.last_name || ''}`.trim(),
       username: from.username || '',
       timestamp: msg.date ? new Date(msg.date * 1000) : new Date(),
-      content: msg.text || ''
+      content: msg.text || msg.caption || ''
     });
     
     // Handle photo
     if (msg.photo && msg.photo.length > 0) {
       const photoFileId = msg.photo[msg.photo.length - 1].file_id;
+      messageLog.photoFileId = photoFileId;
       messageLog.photoUrl = await getDownloadLink(photoFileId, botToken);
     }
     
     // Handle video
     if (msg.video) {
+      messageLog.videoFileId = msg.video.file_id;
       messageLog.videoUrl = await getDownloadLink(msg.video.file_id, botToken);
     }
     
-    // Handle voice
+    // Handle voice / audio
     if (msg.voice) {
+      messageLog.voiceFileId = msg.voice.file_id;
       messageLog.voiceUrl = await getDownloadLink(msg.voice.file_id, botToken);
+    } else if (msg.audio) {
+      messageLog.voiceFileId = msg.audio.file_id;
+      messageLog.voiceUrl = await getDownloadLink(msg.audio.file_id, botToken);
     }
     
     // Handle document
     if (msg.document) {
+      messageLog.documentFileId = msg.document.file_id;
       messageLog.documentUrl = await getDownloadLink(msg.document.file_id, botToken);
     }
     
@@ -92,4 +100,4 @@ const logMessage = async (msg, botToken, MessageLog) => {
 module.exports = {
   getDownloadLink,
   logMessage
-}; 
+};

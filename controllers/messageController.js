@@ -46,6 +46,10 @@ const {
 } = require('./reportCommands');
 
 const {
+  handleMessageLogsCommand
+} = require('./messageLogCommands');
+
+const {
   handleQrToggleCommand,
   handleQrMessage
 } = require('./qrCommands');
@@ -683,6 +687,11 @@ const handleMessage = async (bot, msg, cache) => {
         } else {
           bot.sendMessage(chatId, " ");
         }
+        return;
+      }
+
+      if (slashFirst === '/messagelogs') {
+        await handleMessageLogsCommand(bot, msg);
         return;
       }
       

@@ -49,9 +49,11 @@ app.post(`/bot${token}`, (req, res) => {
   res.sendStatus(200);
 });
 
-// Import và sử dụng report routes
+// Import và sử dụng report routes + message logs dashboard
 const reportRoutes = require('./routes/reportRoutes');
+const messageLogRoutes = require('./routes/messageLogRoutes');
 app.use('/', reportRoutes);
+app.use('/', messageLogRoutes);
 
 // Route trang chủ
 app.get('/', (req, res) => {

@@ -398,6 +398,7 @@ const handleHelpCommand = async (bot, chatId) => {
 删除确认人 @用户名 - 删除确认人
 /op 或者 操作人  @用户名 - 添加操作员
 /removeop 或者 删除操作人 @用户名 - 删除操作员
+/messagelogs - 查看各组消息日志仪表盘链接
 
 -------------------------
 *所有者命令:*
@@ -452,6 +453,7 @@ const handleHelp2Command = async (bot, chatId) => {
 - \`/report\` hoặc \`结束\`: báo cáo tổng hợp nhóm hiện tại
 - \`/report -100...\`: báo cáo nhóm khác (operator/admin nhóm đó); ví dụ \`/report -1001234567890\`
 - \`/report1\`: báo cáo chi tiết hơn (Operator)
+- \`/messagelogs\`: link dashboard tin nhắn các nhóm (Admin)
 
 ━━━━━━━━━━━━━━━━━━
 *2) Quy đổi & biểu thức*
@@ -504,6 +506,7 @@ const handleHelp2Command = async (bot, chatId) => {
 - \`/ad @user\` / \`添加管理员 ...\`: thêm admin (Owner)
 - \`/removead @user\` / \`删除管理员 ...\`: xóa admin (Owner)
 - \`/admins\`: danh sách admin
+- \`/messagelogs\`: link dashboard log tin nhắn các nhóm (Admin)
 - \`/setowner ...\`: đặt owner (Owner)
 - \`/remove ...\`: gỡ người dùng (Owner)
 - \`/migrate\`: migrate dữ liệu (Owner)

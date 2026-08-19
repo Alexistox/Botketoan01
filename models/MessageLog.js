@@ -9,6 +9,10 @@ const MessageLogSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  chatType: {
+    type: String,
+    default: ''
+  },
   senderId: {
     type: String,
     default: ''
@@ -44,7 +48,26 @@ const MessageLogSchema = new mongoose.Schema({
   documentUrl: {
     type: String,
     default: ''
+  },
+  photoFileId: {
+    type: String,
+    default: ''
+  },
+  videoFileId: {
+    type: String,
+    default: ''
+  },
+  voiceFileId: {
+    type: String,
+    default: ''
+  },
+  documentFileId: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model('MessageLog', MessageLogSchema); 
+MessageLogSchema.index({ chatId: 1, timestamp: -1 });
+MessageLogSchema.index({ timestamp: -1 });
+
+module.exports = mongoose.model('MessageLog', MessageLogSchema);
