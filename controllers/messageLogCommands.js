@@ -1,18 +1,8 @@
 const crypto = require('crypto');
 const MessageLog = require('../models/MessageLog');
 const MessageLogsAuth = require('../models/MessageLogsAuth');
-const { isUserAdmin, isUserOwner } = require('../utils/permissions');
-
-function getBaseUrl() {
-  if (process.env.BASE_URL) {
-    return process.env.BASE_URL.replace(/\/$/, '');
-  }
-  if (process.env.HEROKU_APP_NAME) {
-    return `https://${process.env.HEROKU_APP_NAME}.herokuapp.com`;
-  }
-  // Production VPS mặc định
-  return 'http://159.223.49.204:3001';
-}
+const { isUserAdmin } = require('../utils/permissions');
+const { getBaseUrl } = require('../utils/serverUrl');
 
 /**
  * /messagelogs — Admin/Owner: tạo token 24h và gửi link dashboard
@@ -22,8 +12,8 @@ const handleMessageLogsCommand = async (bot, msg) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id.toString();
 
-    if (!(await isUserAdmin(userId)) && !(await isUserOwner(userId))) {
-      bot.sendMessage(chatId, '❌ Chỉ Admin/Owner mới dùng được lệnh này.');
+    if (!(await isUserAdmin(userId))) {
+      bot.sendMessage(chatId, '⛔ Chỉ chủ sở hữu và quản trị viên mới có quyền sử dụng lệnh này!');
       return;
     }
 
@@ -58,6 +48,5 @@ const handleMessageLogsCommand = async (bot, msg) => {
 };
 
 module.exports = {
-  handleMessageLogsCommand,
-  getBaseUrl
+  handleMessageLogsCommand
 };
