@@ -10,11 +10,13 @@ async function seedSubscriptionPlans() {
   for (const plan of DEFAULT_PLANS) {
     await SubscriptionPlan.findOneAndUpdate(
       { planId: plan.planId },
-      {
-        $setOnInsert: plan,
-        $set: { nameZh: plan.nameZh, nameVi: plan.nameVi }
-      },
+      { $setOnInsert: plan },
       { upsert: true, new: true }
+    );
+    // Cập nhật tên hiển thị (không đụng $setOnInsert để tránh conflict Mongo)
+    await SubscriptionPlan.updateOne(
+      { planId: plan.planId },
+      { $set: { nameZh: plan.nameZh, nameVi: plan.nameVi } }
     );
   }
 }
