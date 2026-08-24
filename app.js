@@ -8,7 +8,10 @@ const NodeCache = require('node-cache');
 // Import controllers và utils
 const { handleMessage } = require('./controllers/messageController');
 const { handleInlineButtonCallback } = require('./controllers/userCommands');
+const { handleSubscriptionCallback } = require('./controllers/subscriptionCommands');
 const { connectDB } = require('./config/db');
+const { seedSubscriptionPlans } = require('./services/subscriptionSeed');
+const { startUsdtWatcher } = require('./services/tronUsdtWatcher');
 
 // Khởi tạo cache
 const cache = new NodeCache({ stdTTL: 21600 }); // Cache in 6 hours
@@ -17,12 +20,21 @@ const cache = new NodeCache({ stdTTL: 21600 }); // Cache in 6 hours
 const app = express();
 app.use(express.json());
 
-// Kết nối MongoDB
-connectDB();
-
 // Khởi tạo Telegram Bot
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
+
+// Kết nối MongoDB + khởi động subscription
+connectDB().then(async () => {
+  try {
+    await seedSubscriptionPlans();
+    startUsdtWatcher(bot);
+  } catch (err) {
+    console.error('Subscription init error:', err.message);
+  }
+}).catch((err) => {
+  console.error('MongoDB connection failed:', err.message);
+});
 
 // Xử lý tin nhắn
 bot.on('message', async (msg) => {
@@ -37,6 +49,10 @@ bot.on('message', async (msg) => {
 // Xử lý callback query từ inline keyboard
 bot.on('callback_query', async (callbackQuery) => {
   try {
+    if (callbackQuery.data && callbackQuery.data.startsWith('sub:')) {
+      await handleSubscriptionCallback(bot, callbackQuery);
+      return;
+    }
     await handleInlineButtonCallback(bot, callbackQuery);
   } catch (error) {
     console.error('Error handling callback query:', error);
@@ -72,4 +88,4 @@ process.on('unhandledRejection', (error) => {
   console.error('Unhandled Rejection:', error);
 });
 
-module.exports = { bot }; 
+module.exports = { bot };
