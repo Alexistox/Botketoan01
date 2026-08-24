@@ -398,7 +398,6 @@ const handleHelpCommand = async (bot, chatId) => {
 删除确认人 @用户名 - 删除确认人
 /op 或者 操作人  @用户名 - 添加操作员
 /removeop 或者 删除操作人 @用户名 - 删除操作员
-/messagelogs - 查看各组消息日志仪表盘链接
 
 -------------------------
 *所有者命令:*
