@@ -392,14 +392,6 @@ const handleHelpCommand = async (bot, chatId) => {
 /buttons - 查看所有按钮
 
 -------------------------
-*订阅套餐（USDT TRC20）:*
-/plan 或 /套餐 - 查看日卡/月卡/年卡
-/subscribe day|month|year 或 /订阅 - 下单并用 USDT 支付
-/mysub 或 /我的套餐 - 查看当前套餐与到期时间
-/setplan day|month|year <金额> - 设置套餐价格（管理员）
-/grantsub @用户 day|month|year - 手动开通套餐（管理员）
-
--------------------------
 *管理员命令:*
 /usdt 或者 设置地址 [地址] - 设置USDT地址
 确认人 @用户名 - 设置确认人
@@ -504,15 +496,6 @@ const handleHelp2Command = async (bot, chatId) => {
 - \`/u\` 或 \`u来u来\`：查看当前 USDT 地址
 - \`/rmusdt ...\` 或 \`删除usdt ...\`：删除 USDT 地址（Admin+）
 - 发送 TRC20 地址机器人会自动识别并格式化
-
-━━━━━━━━━━━━━━━━━━
-*7b) 订阅套餐 USDT（TRC20）*
-- \`/plan\` / \`/套餐\`：查看日卡/月卡/年卡
-- \`/subscribe day|month|year\` / \`/订阅\`：下单支付
-- \`/mysub\` / \`/我的套餐\`：查看当前套餐
-- \`/setplan day|month|year <usdt>\`：改价（Admin）
-- \`/grantsub @user day|month|year\`：手动开通（Admin）
-- 计算器 \`/t\` \`/v\` 与表达式免费；记账命令需有效套餐
 
 ━━━━━━━━━━━━━━━━━━
 *8) Quản lý operator / admin / owner*

@@ -42,10 +42,6 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  subscriptionIntroSent: {
-    type: Boolean,
-    default: false
-  },
   groupPermissions: [{
     chatId: String,
     isOperator: { type: Boolean, default: false },

@@ -50,18 +50,6 @@ const {
 } = require('./messageLogCommands');
 
 const {
-  handlePlanCommand,
-  handleSubscribeCommand,
-  handleMysubCommand,
-  handleSetplanCommand,
-  handleGrantsubCommand,
-  sendSubscriptionIntro,
-  handleReplyMenuAction
-} = require('./subscriptionCommands');
-
-const { enforceSubscriptionGate } = require('../utils/subscriptionGate');
-
-const {
   handleQrToggleCommand,
   handleQrMessage
 } = require('./qrCommands');
@@ -106,35 +94,6 @@ const handleMessage = async (bot, msg, cache) => {
       await bot.sendMessage(chatId, userChangeResult.message, { parse_mode: 'Markdown' });
     }
 
-    // Giới thiệu gói subscription lần đầu (chỉ DM, bỏ qua Owner/Admin)
-    if (chatId > 0) {
-      try {
-        const subUser = await User.findOne({ userId: userId.toString() });
-        if (
-          subUser &&
-          !subUser.subscriptionIntroSent &&
-          !subUser.isOwner &&
-          !subUser.isAdmin
-        ) {
-          await sendSubscriptionIntro(bot, chatId);
-          subUser.subscriptionIntroSent = true;
-          await subUser.save();
-        }
-      } catch (introErr) {
-        console.warn('Could not send subscription intro:', introErr.message);
-      }
-    }
-
-    // Menu reply (gói / máy tính) — chỉ DM
-    if (chatId > 0 && (await handleReplyMenuAction(bot, msg))) {
-      return;
-    }
-
-    // Chặn lệnh kế toán nếu hết hạn subscription (máy tính /plan vẫn miễn phí)
-    if (await enforceSubscriptionGate(bot, chatId, userId, messageText, msg)) {
-      return;
-    }
-    
     // Nếu người dùng gửi '开始', chuyển thành '/st' để dùng chung logic
     if (messageText === '开始') {
       const modifiedMsg = { ...msg, text: '/st' };
@@ -509,39 +468,6 @@ const handleMessage = async (bot, msg, cache) => {
         return;
       }
 
-      if (
-        messageText === '/plan' ||
-        messageText === '/goi' ||
-        messageText === '/套餐'
-      ) {
-        await handlePlanCommand(bot, msg);
-        return;
-      }
-
-      if (messageText.startsWith('/subscribe') || messageText.startsWith('/订阅')) {
-        // Chuẩn hóa /订阅 -> /subscribe để parser dùng chung
-        if (messageText.startsWith('/订阅')) {
-          msg = { ...msg, text: messageText.replace(/^\/订阅/, '/subscribe') };
-        }
-        await handleSubscribeCommand(bot, msg);
-        return;
-      }
-
-      if (messageText === '/mysub' || messageText === '/我的套餐') {
-        await handleMysubCommand(bot, msg);
-        return;
-      }
-
-      if (messageText.startsWith('/setplan ')) {
-        await handleSetplanCommand(bot, msg);
-        return;
-      }
-
-      if (messageText.startsWith('/grantsub ')) {
-        await handleGrantsubCommand(bot, msg);
-        return;
-      }
-      
       if (messageText === '/off') {
         bot.sendMessage(chatId, "感谢大家的辛勤付出，祝大家发财！ 💰💸🍀");
         return;
