@@ -5,20 +5,17 @@ const { extractBankInfoFromImage, extractMoneyAmountFromImage } = require('../ut
 const { getDownloadLink } = require('../utils/telegramUtils');
 const { extractMoneyFromText, extractMoneyFromBankNotification } = require('../utils/textParser');
 const {
-  sendAndRegisterEphemeralError,
-  registerEphemeralBotError
+  sendAndRegisterEphemeralError
 } = require('../utils/ephemeralBotMessages');
+const { startTyping } = require('../utils/chatAction');
 
 /**
  * Xử lý lệnh trích xuất thông tin ngân hàng từ ảnh
  */
 const handleImageBankInfo = async (bot, msg) => {
+  const chatId = msg.chat.id;
+  const stopTyping = startTyping(bot, chatId);
   try {
-    const chatId = msg.chat.id;
-    
-    // Thông báo cho người dùng biết đang xử lý
-    bot.sendMessage(chatId, "⏳ 正在获取银行账户信息…");
-    
     // Lấy ảnh có độ phân giải cao nhất
     const photos = msg.photo;
     const photoFileId = photos[photos.length - 1].file_id;
@@ -61,6 +58,8 @@ const handleImageBankInfo = async (bot, msg) => {
   } catch (error) {
     console.error('Error in handleImageBankInfo:', error);
     await sendAndRegisterEphemeralError(bot, msg.chat.id, "处理图片时出错，请重试。");
+  } finally {
+    stopTyping();
   }
 };
 
@@ -68,18 +67,16 @@ const handleImageBankInfo = async (bot, msg) => {
  * Xử lý lệnh trích xuất thông tin ngân hàng từ ảnh được reply
  */
 const handleReplyImageBankInfo = async (bot, msg) => {
+  const chatId = msg.chat.id;
+
+  // Kiểm tra nếu tin nhắn được reply có chứa ảnh
+  if (!msg.reply_to_message || !msg.reply_to_message.photo) {
+    await sendAndRegisterEphemeralError(bot, chatId, "❌ 请回复一条含有图片的消息。");
+    return;
+  }
+
+  const stopTyping = startTyping(bot, chatId);
   try {
-    const chatId = msg.chat.id;
-    
-    // Kiểm tra nếu tin nhắn được reply có chứa ảnh
-    if (!msg.reply_to_message || !msg.reply_to_message.photo) {
-      await sendAndRegisterEphemeralError(bot, chatId, "❌ 请回复一条含有图片的消息。");
-      return;
-    }
-    
-    // Thông báo cho người dùng biết đang xử lý
-    bot.sendMessage(chatId, "⏳ 正在获取银行账户信息…");
-    
     // Lấy ảnh có độ phân giải cao nhất từ tin nhắn được reply
     const photos = msg.reply_to_message.photo;
     const photoFileId = photos[photos.length - 1].file_id;
@@ -122,6 +119,8 @@ const handleReplyImageBankInfo = async (bot, msg) => {
   } catch (error) {
     console.error('Error in handleReplyImageBankInfo:', error);
     await sendAndRegisterEphemeralError(bot, msg.chat.id, "处理图片时出错，请重试。");
+  } finally {
+    stopTyping();
   }
 };
 
@@ -280,35 +279,31 @@ const handlePicModeReply = async (bot, msg, replyNumber) => {
       
       // Nếu không tìm thấy số tiền trong caption, thử phân tích ảnh
       if (!moneyAmount || moneyAmount <= 0) {
-        // Thông báo cho người dùng biết đang xử lý ảnh
-        const processingMsg = await bot.sendMessage(chatId, "⏳ 正在识别图片中的金额…");
-        
-        // Lấy ảnh có độ phân giải cao nhất từ tin nhắn được reply
-        const photos = msg.reply_to_message.photo;
-        const photoFileId = photos[photos.length - 1].file_id;
-        
-        // Lấy đường dẫn tải ảnh
-        const downloadUrl = await getDownloadLink(photoFileId, process.env.TELEGRAM_BOT_TOKEN);
-        
-        if (!downloadUrl) {
-          await bot.editMessageText("❌ 无法获取图片文件信息.", {
-            chat_id: chatId,
-            message_id: processingMsg.message_id
-          });
-          registerEphemeralBotError(chatId, processingMsg.message_id);
-          await tryDeletePicTriggerMessage();
-          return;
+        const stopTyping = startTyping(bot, chatId);
+
+        try {
+          // Lấy ảnh có độ phân giải cao nhất từ tin nhắn được reply
+          const photos = msg.reply_to_message.photo;
+          const photoFileId = photos[photos.length - 1].file_id;
+
+          // Lấy đường dẫn tải ảnh
+          const downloadUrl = await getDownloadLink(photoFileId, process.env.TELEGRAM_BOT_TOKEN);
+
+          if (!downloadUrl) {
+            await sendAndRegisterEphemeralError(bot, chatId, "❌ 无法获取图片文件信息.");
+            await tryDeletePicTriggerMessage();
+            return;
+          }
+
+          // Tải ảnh
+          const response = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
+          const imageBuffer = Buffer.from(response.data);
+
+          // Trích xuất số tiền từ ảnh
+          moneyAmount = await extractMoneyAmountFromImage(imageBuffer);
+        } finally {
+          stopTyping();
         }
-        
-        // Tải ảnh
-        const response = await axios.get(downloadUrl, { responseType: 'arraybuffer' });
-        const imageBuffer = Buffer.from(response.data);
-        
-        // Trích xuất số tiền từ ảnh
-        moneyAmount = await extractMoneyAmountFromImage(imageBuffer);
-        
-        // Xóa tin nhắn xử lý
-        bot.deleteMessage(chatId, processingMsg.message_id);
       }
     }
     // Xử lý text
