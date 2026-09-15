@@ -9,6 +9,7 @@ const NodeCache = require('node-cache');
 const { handleMessage } = require('./controllers/messageController');
 const { handleInlineButtonCallback } = require('./controllers/userCommands');
 const { connectDB } = require('./config/db');
+const { enableTypingBeforeSend } = require('./utils/chatAction');
 
 // Khởi tạo cache
 const cache = new NodeCache({ stdTTL: 21600 }); // Cache in 6 hours
@@ -23,6 +24,7 @@ connectDB();
 // Khởi tạo Telegram Bot
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
+enableTypingBeforeSend(bot);
 
 // Xử lý tin nhắn
 bot.on('message', async (msg) => {
