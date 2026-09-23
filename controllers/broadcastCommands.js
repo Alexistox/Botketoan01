@@ -48,7 +48,7 @@ async function buildChatTitleMap(bot, chatIdStrings) {
           '?';
         map[id] = name;
       } catch {
-        map[id] = 'không lấy được tên';
+        map[id] = '无法获取名称';
       }
     })
   );
@@ -75,7 +75,7 @@ const handleBroadcastCm = async (bot, msg) => {
   if (!codeRaw) {
     await bot.sendMessage(
       msg.chat.id,
-      'Thiếu mã tin. Dùng: /cm <mã> (reply tin cần lưu, hoặc gửi ảnh/GIF/video kèm caption /cm <mã>).'
+      '缺少消息代码。用法：/cm <代码>（回复要保存的消息，或发送图片/GIF/视频并在说明中写 /cm <代码>）。'
     );
     return;
   }
@@ -105,7 +105,7 @@ const handleBroadcastCm = async (bot, msg) => {
     } else {
       await bot.sendMessage(
         msg.chat.id,
-        'Reply tin nhắn cần lưu hoặc gửi media kèm caption /cm <mã>.'
+        '请回复要保存的消息，或发送媒体并在说明中写 /cm <代码>。'
       );
       return;
     }
@@ -116,7 +116,7 @@ const handleBroadcastCm = async (bot, msg) => {
     { fromChatId, messageId },
     { upsert: true, new: true }
   );
-  await bot.sendMessage(msg.chat.id, `Đã lưu tin "${code}".`);
+  await bot.sendMessage(msg.chat.id, `已保存消息 "${code}"。`);
 };
 
 /**
@@ -126,11 +126,11 @@ const handleBroadcastG = async (bot, msg) => {
   const source = commandSource(msg);
   const tag = argsAfterCommand(source).toLowerCase();
   if (!tag) {
-    await bot.sendMessage(msg.chat.id, 'Thiếu mã nhóm. Dùng: /g <mã>');
+    await bot.sendMessage(msg.chat.id, '缺少群组代码。用法：/g <代码>');
     return;
   }
   if (msg.chat.type === 'private') {
-    await bot.sendMessage(msg.chat.id, 'Lệnh /g chỉ dùng trong nhóm hoặc supergroup.');
+    await bot.sendMessage(msg.chat.id, '命令 /g 只能在群组或超级群组中使用。');
     return;
   }
   const chatIdStr = msg.chat.id.toString();
@@ -139,7 +139,7 @@ const handleBroadcastG = async (bot, msg) => {
     { $setOnInsert: { tag }, $addToSet: { chatIds: chatIdStr } },
     { upsert: true, new: true }
   );
-  await bot.sendMessage(msg.chat.id, `Đã thêm nhóm này vào tập "${tag}".`);
+  await bot.sendMessage(msg.chat.id, `已将本群加入集合 "${tag}"。`);
 };
 
 /**
@@ -148,7 +148,7 @@ const handleBroadcastG = async (bot, msg) => {
 const handleBroadcastGlist = async (bot, msg) => {
   const sets = await BroadcastGroupSet.find().sort({ tag: 1 }).lean();
   if (!sets.length) {
-    await bot.sendMessage(msg.chat.id, 'Chưa có tập nhóm nào. Dùng /g <mã> trong nhóm để thêm.');
+    await bot.sendMessage(msg.chat.id, '暂无群组集合。请在群组中使用 /g <代码> 添加。');
     return;
   }
   const allIds = sets.flatMap((s) => s.chatIds);
@@ -157,10 +157,10 @@ const handleBroadcastGlist = async (bot, msg) => {
   const lines = sets.map((s) => {
     const rows = s.chatIds.map((id) => {
       const idStr = String(id);
-      const title = titleMap[idStr] ?? 'không lấy được tên';
+      const title = titleMap[idStr] ?? '无法获取名称';
       return `  ${idStr} — ${title}`;
     });
-    return [`• ${s.tag}: ${s.chatIds.length} nhóm`, ...rows].join('\n');
+    return [`• ${s.tag}: ${s.chatIds.length} 个群组`, ...rows].join('\n');
   });
   const text = lines.join('\n\n');
   await sendTelegramChunks(bot, msg.chat.id, text);
@@ -172,7 +172,7 @@ const handleBroadcastGlist = async (bot, msg) => {
 const handleBroadcastCmlist = async (bot, msg) => {
   const list = await BroadcastSavedMessage.find().sort({ code: 1 }).lean();
   if (!list.length) {
-    await bot.sendMessage(msg.chat.id, 'Chưa có tin nào được lưu. Dùng /cm <mã> (reply hoặc caption media).');
+    await bot.sendMessage(msg.chat.id, '暂无已保存消息。请使用 /cm <代码>（回复消息或媒体说明）。');
     return;
   }
   const lines = list.map((row) => {
@@ -184,13 +184,13 @@ const handleBroadcastCmlist = async (bot, msg) => {
 
   // Gửi đầy đủ nội dung từng tin đã lưu để xem trực tiếp.
   for (const row of list) {
-    await bot.sendMessage(msg.chat.id, `Nội dung mã "${row.code}":`);
+    await bot.sendMessage(msg.chat.id, `代码 "${row.code}" 的内容：`);
     try {
       await bot.copyMessage(msg.chat.id, row.fromChatId, row.messageId);
     } catch (e) {
       await bot.sendMessage(
         msg.chat.id,
-        `Không thể tải nội dung mã "${row.code}" (${row.fromChatId}/${row.messageId}): ${e.message || e}`
+        `无法加载代码 "${row.code}" 的内容（${row.fromChatId}/${row.messageId}）：${e.message || e}`
       );
     }
   }
@@ -206,7 +206,7 @@ async function resolveBroadcastTargets(target) {
     if (!set.chatIds.length) {
       return {
         ok: false,
-        message: `Tập "${tag}" chưa có nhóm nào. Dùng /g ${tag} trong từng nhóm cần nhận tin.`
+        message: `集合 "${tag}" 中还没有群组。请在需要接收消息的每个群组中使用 /g ${tag}。`
       };
     }
     return { ok: true, targets: [...set.chatIds] };
@@ -216,7 +216,7 @@ async function resolveBroadcastTargets(target) {
   }
   return {
     ok: false,
-    message: `Không tìm thấy tập "${tag}". Dùng /g ${tag} trong nhóm trước, hoặc gửi đúng id nhóm Telegram (thường âm, dạng -100...).`
+    message: `未找到集合 "${tag}"。请先在群组中使用 /g ${tag}，或填写正确的 Telegram 群组 ID（一般为负数，格式如 -100...）。`
   };
 }
 
@@ -231,7 +231,7 @@ const handleBroadcastSend = async (bot, msg) => {
   if (cmd !== '/send' || parts.length < 2) {
     await bot.sendMessage(
       msg.chat.id,
-      'Dùng: /send <mã tin đã lưu> <mã nhóm hoặc id>, hoặc reply tin nhắn và gửi /send <mã nhóm hoặc id>.'
+      '用法：/send <已保存消息代码> <群组代码或ID>，或回复消息后发送 /send <群组代码或ID>。'
     );
     return;
   }
@@ -243,7 +243,7 @@ const handleBroadcastSend = async (bot, msg) => {
     if (!msg.reply_to_message) {
       await bot.sendMessage(
         msg.chat.id,
-        'Reply tin cần gửi rồi gửi /send <mã nhóm hoặc id>, hoặc /send <mã tin> <mã nhóm hoặc id> (không reply).'
+        '请先回复要发送的消息，再发送 /send <群组代码或ID>；或不回复，直接使用 /send <消息代码> <群组代码或ID>。'
       );
       return;
     }
@@ -253,7 +253,7 @@ const handleBroadcastSend = async (bot, msg) => {
     const msgCode = parts[1].toLowerCase();
     const saved = await BroadcastSavedMessage.findOne({ code: msgCode });
     if (!saved) {
-      await bot.sendMessage(msg.chat.id, `Không tìm thấy tin "${msgCode}".`);
+      await bot.sendMessage(msg.chat.id, `未找到消息 "${msgCode}"。`);
       return;
     }
     fromChatId = saved.fromChatId;
@@ -280,10 +280,10 @@ const handleBroadcastSend = async (bot, msg) => {
     }
   }
 
-  let report = `Gửi xong: ${ok}/${targets.length} thành công.`;
+  let report = `发送完成：${ok}/${targets.length} 成功。`;
   if (errors.length) {
-    report += `\nLỗi:\n${errors.slice(0, 10).join('\n')}`;
-    if (errors.length > 10) report += `\n... và ${errors.length - 10} lỗi khác`;
+    report += `\n错误：\n${errors.slice(0, 10).join('\n')}`;
+    if (errors.length > 10) report += `\n... 以及另外 ${errors.length - 10} 个错误`;
   }
   await bot.sendMessage(msg.chat.id, report);
 };
@@ -295,14 +295,14 @@ const handleBroadcastDm = async (bot, msg) => {
   const source = commandSource(msg);
   const code = argsAfterCommand(source).toLowerCase();
   if (!code) {
-    await bot.sendMessage(msg.chat.id, 'Dùng: /dm <mã tin>');
+    await bot.sendMessage(msg.chat.id, '用法：/dm <消息代码>');
     return;
   }
   const res = await BroadcastSavedMessage.deleteOne({ code });
   if (res.deletedCount) {
-    await bot.sendMessage(msg.chat.id, `Đã xóa tin "${code}".`);
+    await bot.sendMessage(msg.chat.id, `已删除消息 "${code}"。`);
   } else {
-    await bot.sendMessage(msg.chat.id, `Không có tin "${code}".`);
+    await bot.sendMessage(msg.chat.id, `没有消息 "${code}"。`);
   }
 };
 
@@ -321,7 +321,7 @@ const handleBroadcastDg = async (bot, msg) => {
     await removeEmptyGroupSets();
     await bot.sendMessage(
       msg.chat.id,
-      `Đã gỡ nhóm hiện tại khỏi mọi tập (matched ${r.matchedCount}).`
+      `已将本群从所有集合中移除（匹配 ${r.matchedCount}）。`
     );
     return;
   }
@@ -332,7 +332,7 @@ const handleBroadcastDg = async (bot, msg) => {
     await removeEmptyGroupSets();
     await bot.sendMessage(
       msg.chat.id,
-      `Đã gỡ chat ${idStr} khỏi mọi tập (matched ${r.matchedCount}).`
+      `已将聊天 ${idStr} 从所有集合中移除（匹配 ${r.matchedCount}）。`
     );
     return;
   }
@@ -342,9 +342,9 @@ const handleBroadcastDg = async (bot, msg) => {
   const r = await BroadcastGroupSet.updateOne({ tag }, { $pull: { chatIds: cid } });
   await removeEmptyGroupSets();
   if (r.matchedCount) {
-    await bot.sendMessage(msg.chat.id, `Đã gỡ nhóm hiện tại khỏi tập "${tag}".`);
+    await bot.sendMessage(msg.chat.id, `已将本群从集合 "${tag}" 中移除。`);
   } else {
-    await bot.sendMessage(msg.chat.id, `Không có tập "${tag}".`);
+    await bot.sendMessage(msg.chat.id, `没有集合 "${tag}"。`);
   }
 };
 

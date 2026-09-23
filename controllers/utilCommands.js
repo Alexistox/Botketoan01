@@ -414,6 +414,19 @@ const handleHelpCommand = async (bot, chatId) => {
 /format - 简单显示 (1000000)，无千分位分隔 [全群生效]
 
 -------------------------
+*群组广播（操作员）:*
+/g [代码] - 将当前群组加入指定集合
+/glist - 查看所有群组集合（ID + 群名）
+/dg - 将当前群组从所有集合中移除
+/dg [群组ID] - 将该 ID 从所有集合中移除
+/dg [代码] - 将当前群组从指定集合中移除
+/cm [消息代码] - 保存消息（回复要保存的消息，或发送媒体并在说明中写代码）
+/cmlist - 查看已保存消息并重新发送全部内容
+/dm [消息代码] - 删除已保存消息
+/send [消息代码] [群组代码或ID] - 将已保存消息发送到目标群组
+回复一条消息后 /send [群组代码或ID] - 直接发送该回复消息
+
+-------------------------
 *其他功能:*
 /c - 从图片提取银行信息
 输入数学表达式如 2+2 直接计算
@@ -524,17 +537,17 @@ const handleHelp2Command = async (bot, chatId) => {
 - \`/format\`: số thuần không phân tách nghìn (vd: 1000000)
 
 ━━━━━━━━━━━━━━━━━━
-*11) Broadcast nhóm/tin đã lưu (Operator)*
-- \`/g <mã>\`: thêm nhóm hiện tại vào tập mã
-- \`/glist\`: xem tất cả tập nhóm (id + tên nhóm)
-- \`/dg\`: gỡ nhóm hiện tại khỏi mọi tập
-- \`/dg <id nhóm>\`: gỡ id đó khỏi mọi tập
-- \`/dg <mã>\`: gỡ nhóm hiện tại khỏi 1 tập mã
-- \`/cm <mã tin>\`: lưu tin (reply tin cần lưu hoặc gửi media kèm caption)
-- \`/cmlist\`: xem mã tin đã lưu + gửi lại toàn bộ nội dung đã lưu
-- \`/dm <mã tin>\`: xóa tin đã lưu
-- \`/send <mã tin> <mã nhóm|id>\`: gửi tin đã lưu tới nhóm đích
-- Reply 1 tin rồi dùng \`/send <mã nhóm|id>\`: gửi trực tiếp tin reply
+*11) 群组广播 / 已保存消息（操作员）*
+- \`/g <代码>\`: 将当前群组加入指定集合
+- \`/glist\`: 查看所有群组集合（ID + 群名）
+- \`/dg\`: 将当前群组从所有集合中移除
+- \`/dg <群组ID>\`: 将该 ID 从所有集合中移除
+- \`/dg <代码>\`: 将当前群组从指定集合中移除
+- \`/cm <消息代码>\`: 保存消息（回复要保存的消息，或发送媒体并在说明中写代码）
+- \`/cmlist\`: 查看已保存消息代码，并重新发送全部已保存内容
+- \`/dm <消息代码>\`: 删除已保存消息
+- \`/send <消息代码> <群组代码|ID>\`: 将已保存消息发送到目标群组
+- 回复一条消息后使用 \`/send <群组代码|ID>\`: 直接发送该回复消息
 
 💡 *Gợi ý:* trong đa số nhóm, lệnh nghiệp vụ cần quyền Operator trở lên.
 `;
