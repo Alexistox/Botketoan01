@@ -69,8 +69,16 @@ const FIELD_SYNONYMS = {
     '银行'
   ],
   amount: [
+    '出款金额',
+    '转账金额',
+    '付款金额',
+    '汇款金额',
+    '提款金额',
     '金额',
+    '出款',
     '下发',
+    'số tiền chuyển',
+    'so tien chuyen',
     'số tiền',
     'so tien',
     'amount',
@@ -79,30 +87,47 @@ const FIELD_SYNONYMS = {
     'so tien ck'
   ],
   note: [
+    '转账内容',
+    '转帐内容',
+    '转账备注',
+    'nội dung chuyển khoản',
+    'noi dung chuyen khoan',
+    'nội dung thanh toán',
+    'noi dung thanh toan',
+    'nội dung ck',
+    'noi dung ck',
+    'nội dung',
+    'noi dung',
     '备注',
+    '附言',
+    '用途',
     'ghi chú',
     'ghi chu',
     'note',
-    'nội dung',
-    'noi dung',
-    'nội dung ck',
-    'noi dung ck',
     'content'
   ]
 };
 
-/** Tìm field: ưu tiên synonym dài nhất khớp prefix/exact */
+const hasCjk = (s) => /[\u3400-\u9FFF]/.test(s);
+
+/** Nhãn Latin phải là cụm từ; nhãn chữ Hán khớp cả khi nằm trong nhãn dài hơn (出款金额, Ngân hàng 银行). */
+function synonymInKey(key, syn) {
+  if (!syn || !key.includes(syn)) return false;
+  if (hasCjk(syn)) return true;
+  const escaped = syn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'u').test(key);
+}
+
+/** Tìm field: ưu tiên synonym dài nhất có trong nhãn (song ngữ hoặc nhãn ghép). */
 function matchField(normalizedKey) {
   let best = null;
   let bestLen = -1;
   for (const [field, synonyms] of Object.entries(FIELD_SYNONYMS)) {
     for (const syn of synonyms) {
       const s = syn.toLowerCase();
-      if (normalizedKey === s || normalizedKey.startsWith(`${s} `) || normalizedKey.startsWith(`${s}:`)) {
-        if (s.length > bestLen) {
-          bestLen = s.length;
-          best = field;
-        }
+      if (synonymInKey(normalizedKey, s) && s.length > bestLen) {
+        bestLen = s.length;
+        best = field;
       }
     }
   }

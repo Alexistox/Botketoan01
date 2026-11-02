@@ -66,5 +66,13 @@ const stackedChineseLabels =
   '下发： 8453000 VND';
 console.log('stackedChineseLabels', JSON.stringify(parseBankInfo(stackedChineseLabels), null, 2));
 
+const bilingual =
+  'Ngân hàng 银行：MB bank\n' +
+  'Số tài khoản 账号 ： 556789866666\n' +
+  'Tên chủ tài khoản 姓名： Lưu Thị Thúy Thanh\n' +
+  '出款金额： 39.483.000 VND\n' +
+  '转账内容：  NAPAS 247';
+console.log('bilingual', JSON.stringify(parseBankInfo(bilingual), null, 2));
+
 const { findBankCode } = require('../utils/bankMapping');
 console.log('bank Techcombank (TCB)', findBankCode('Techcombank (TCB)'));

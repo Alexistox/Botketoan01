@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { Resvg } = require('@resvg/resvg-js');
 const { findBankCode } = require('../utils/bankMapping');
 const { parseSpecialNumber, formatSmart } = require('../utils/formatter');
 const { parseBankInfoFromLabels } = require('../utils/qrBankKeywords');
@@ -212,6 +213,33 @@ const parseBankInfo = (messageText) => {
 };
 
 /**
+ * VietQR trả SVG: khung là PNG nhúng, mã QR là path vẽ đè lên.
+ * Lấy riêng PNG sẽ ra ô trống. Render cả SVG thành PNG rồi gửi cho Telegram.
+ */
+const fetchVietQRImage = async (qrUrl) => {
+  const resp = await axios.get(qrUrl, {
+    responseType: 'arraybuffer',
+    timeout: 15000,
+    maxRedirects: 5,
+    headers: { Accept: 'image/svg+xml,image/png,image/jpeg,*/*' }
+  });
+  const contentType = String(resp.headers['content-type'] || '');
+  const buf = Buffer.from(resp.data);
+  if (contentType.includes('image/png') || contentType.includes('image/jpeg')) {
+    return buf;
+  }
+
+  const svg = buf.toString('utf8');
+  if (!svg.includes('<svg')) {
+    throw new Error('VietQR không trả ảnh');
+  }
+  const resvg = new Resvg(svg, {
+    fitTo: { mode: 'width', value: 540 }
+  });
+  return resvg.render().asPng();
+};
+
+/**
  * Tạo mã QR từ thông tin ngân hàng sử dụng VietQR API
  */
 const generateQRCode = async (bankInfo) => {
@@ -250,13 +278,7 @@ const generateQRCode = async (bankInfo) => {
       }
     }
     
-    // Tải ảnh QR từ VietQR API
-    const response = await axios.get(vietqrUrl, {
-      responseType: 'arraybuffer',
-      timeout: 10000
-    });
-    
-    const qrCodeBuffer = Buffer.from(response.data);
+    const qrCodeBuffer = await fetchVietQRImage(vietqrUrl);
     
     // Tạo nội dung QR theo định dạng VietQR (để hiển thị)
     let qrContent = `${bankCode}|${bankInfo.accountNumber}|${bankInfo.accountName}`;
