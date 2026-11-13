@@ -8,20 +8,23 @@ function formatPrice(price) {
 }
 
 function formatAmountLabel(amount) {
-  if (amount >= 1_000_000) {
-    return `${amount / 1_000_000}tr VND`;
+  if (amount >= 100_000_000 && amount % 100_000_000 === 0) {
+    return `${amount / 100_000_000}亿 VND`;
+  }
+  if (amount >= 10_000 && amount % 10_000 === 0) {
+    return `${amount / 10_000}万 VND`;
   }
   return `${amount.toLocaleString('en-US')} VND`;
 }
 
 function buildPriceMessage(exchangeLabel, items) {
   const header =
-    `📊 ${exchangeLabel} P2P USDT/VND — Mua (${formatAmountLabel(AMOUNT_VND)})\n` +
-    `Bỏ qua thương nhân đầu · 10 giá trị\n` +
+    `📊 ${exchangeLabel} P2P USDT/VND — 买入（${formatAmountLabel(AMOUNT_VND)}）\n` +
+    `跳过首位商家 · 显示10个价格\n` +
     `────────────────`;
 
   if (!items || items.length === 0) {
-    return `${header}\nKhông có dữ liệu phù hợp.`;
+    return `${header}\n暂无合适数据。`;
   }
 
   const lines = items.map((item, index) => {
@@ -43,14 +46,14 @@ const handleP2pPriceCommand = async (bot, msg, exchangeKey) => {
   const exchange = EXCHANGES[exchangeKey];
 
   if (!exchange) {
-    await bot.sendMessage(chatId, 'Sàn không hợp lệ.');
+    await bot.sendMessage(chatId, '无效的交易所。');
     return;
   }
 
   try {
     const waiting = await bot.sendMessage(
       chatId,
-      `⏳ Đang lấy giá ${exchange.label} P2P...`
+      `⏳ 正在获取 ${exchange.label} P2P 价格...`
     );
 
     const items = await exchange.fetch();
@@ -68,7 +71,7 @@ const handleP2pPriceCommand = async (bot, msg, exchangeKey) => {
     console.error(`Error in handleP2pPriceCommand (${exchangeKey}):`, error.message || error);
     await bot.sendMessage(
       chatId,
-      `❌ Không lấy được giá ${exchange.label} P2P. Vui lòng thử lại sau.`
+      `❌ 无法获取 ${exchange.label} P2P 价格，请稍后再试。`
     );
   }
 };
