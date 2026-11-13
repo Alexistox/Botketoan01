@@ -12,6 +12,7 @@ const NodeCache = require('node-cache');
 const { handleMessage } = require('./controllers/messageController');
 const { handleInlineButtonCallback } = require('./controllers/userCommands');
 const { connectDB } = require('./config/db');
+const { startServerFeeWatcher } = require('./services/serverFeeWatcher');
 
 // Khởi tạo cache
 const cache = new NodeCache({ stdTTL: 21600 }); // Cache in 6 hours
@@ -69,6 +70,9 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('Bot started polling for updates');
 });
+
+// Theo dõi thanh toán phí máy chủ (/phithang, xufei)
+startServerFeeWatcher(bot);
 
 // Xử lý lỗi không bắt được
 process.on('unhandledRejection', (error) => {
