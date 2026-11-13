@@ -351,6 +351,9 @@ const handleHelpCommand = async (bot, chatId) => {
 *汇率与费率:*
 /t [金额] - VND转USDT (例: /t 1000000)
 /v [金额] - USDT转VND (例: /v 100)
+/z0 - Binance P2P USDT/VND 买入价（100tr，跳过首位）
+/z1 - OKX P2P USDT/VND 买入价（100tr，跳过首位）
+/z2 - Bybit P2P USDT/VND 买入价（100tr，跳过首位）
 /d [费率]/[汇率] - 临时设置费率和汇率 (例: /d 2/14600)
 /d2 [出款费率]/[出款汇率] - 设置出款费率和汇率 (例: /d2 3/14800)
 /d2 off - 关闭出款汇率费率显示
@@ -471,6 +474,9 @@ const handleHelp2Command = async (bot, chatId) => {
 *2) Quy đổi & biểu thức*
 - \`/t <VND>\`: đổi VND -> USDT
 - \`/v <USDT>\`: đổi USDT -> VND
+- \`/z0\`: Binance P2P USDT/VND cột mua (mức 100tr, bỏ qua thương nhân đầu, 10 giá)
+- \`/z1\`: OKX P2P USDT/VND cột mua (mức 100tr, bỏ qua thương nhân đầu, 10 giá)
+- \`/z2\`: Bybit P2P USDT/VND cột mua (mức 100tr, bỏ qua thương nhân đầu, 10 giá)
 - Nhập biểu thức toán trực tiếp: ví dụ \`12w+5\`, \`1亿+2亿\`, \`1y/2\`
 - Hỗ trợ ký hiệu số: \`k\`, \`m\`, \`w\`, \`万\`, \`亿\`, \`y\`, \`个亿\`
 
