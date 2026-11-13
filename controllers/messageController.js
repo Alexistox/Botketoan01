@@ -35,6 +35,12 @@ const {
 } = require('./utilCommands');
 
 const {
+  handleZ0Command,
+  handleZ1Command,
+  handleZ2Command
+} = require('./p2pPriceCommands');
+
+const {
   handleImageBankInfo,
   handleReplyImageBankInfo,
   handleBankNotificationReply,
@@ -529,6 +535,20 @@ const handleMessage = async (bot, msg, cache) => {
       
       if (messageText.startsWith('/v ')) {
         await handleCalculateVndCommand(bot, msg);
+        return;
+      }
+
+      // Giá P2P USDT/VND cột mua mức 100tr, bỏ qua thương nhân đầu
+      if (slashFirst === '/z0') {
+        await handleZ0Command(bot, msg);
+        return;
+      }
+      if (slashFirst === '/z1') {
+        await handleZ1Command(bot, msg);
+        return;
+      }
+      if (slashFirst === '/z2') {
+        await handleZ2Command(bot, msg);
         return;
       }
       
