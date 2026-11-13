@@ -71,6 +71,81 @@ const {
   handleBroadcastDg
 } = require('./broadcastCommands');
 
+const {
+  isPhiThangCommand,
+  handlePhiThangCommand,
+  isXufeiCommand,
+  handleXufeiCommand,
+  isServerFeeActive,
+  buildOpenPaymentMessage
+} = require('../services/serverFeeService');
+
+const replyServerFeeLocked = async (bot, chatId) => {
+  try {
+    const payment = await buildOpenPaymentMessage('expired');
+    await bot.sendMessage(chatId, payment.text, payment.html ? { parse_mode: 'HTML' } : {});
+  } catch (error) {
+    console.error('replyServerFeeLocked error:', error.message);
+    await bot.sendMessage(chatId, '服务器费用已到期，记账已暂停。');
+  }
+};
+
+const isServerFeeExemptMessage = (text) => {
+  const normalized = (text || '').trim();
+  if (!normalized) return true;
+  if (normalized === '开始') return true;
+  const first = normalized.split(/\s+/)[0].split('@')[0].toLowerCase();
+  return [
+    '/help',
+    '/help2',
+    '/start',
+    '/off',
+    '/st',
+    '/z0',
+    '/z1',
+    '/z2',
+    '/t',
+    '/v',
+    '/phithang',
+    '/xufei',
+    'xufei'
+  ].includes(first);
+};
+
+const looksLikeLedgerOrBotCommand = (text) => {
+  const normalized = (text || '').trim();
+  if (!normalized) return false;
+  if (
+    normalized.startsWith('/') ||
+    normalized.startsWith('+') ||
+    normalized.startsWith('-') ||
+    normalized.startsWith('%')
+  ) {
+    return true;
+  }
+  if (
+    [
+      '上课',
+      '结束',
+      'Start',
+      '开始新账单',
+      'u来u来'
+    ].includes(normalized)
+  ) {
+    return true;
+  }
+  if (
+    normalized.startsWith('设置') ||
+    normalized.startsWith('删除') ||
+    normalized.startsWith('下发') ||
+    normalized.startsWith('加操作') ||
+    normalized.startsWith('撤销')
+  ) {
+    return true;
+  }
+  return isMathExpression(normalized) || isSingleNumber(normalized);
+};
+
 // Hàm xử lý tin nhắn chính
 const handleMessage = async (bot, msg, cache) => {
   try {
@@ -92,6 +167,26 @@ const handleMessage = async (bot, msg, cache) => {
     const timestamp = new Date();
     // Hỗ trợ caption như văn bản lệnh (ảnh + chú thích)
     const messageText = msg.text || msg.caption || '';
+
+    // /phithang on|off và xufei — owner, chat riêng
+    if (isPhiThangCommand(messageText)) {
+      await handlePhiThangCommand(bot, msg);
+      return;
+    }
+    if (isXufeiCommand(messageText)) {
+      await handleXufeiCommand(bot, msg);
+      return;
+    }
+
+    // Khi phí máy chủ hết hạn: khóa sổ (chặn lệnh kế toán), vẫn cho help/giá/đổi tiền
+    if (
+      looksLikeLedgerOrBotCommand(messageText) &&
+      !isServerFeeExemptMessage(messageText) &&
+      !(await isServerFeeActive())
+    ) {
+      await replyServerFeeLocked(bot, chatId);
+      return;
+    }
     
     // Kiểm tra và cập nhật thông tin user nếu có thay đổi
     const userChangeResult = await userTracker.checkAndUpdateUser(bot, msg);
