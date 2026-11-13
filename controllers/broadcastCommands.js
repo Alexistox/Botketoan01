@@ -25,6 +25,18 @@ function isNumericChatId(s) {
   return /^-?\d+$/.test(String(s).trim());
 }
 
+/** Telegram group IDs are negative; accept /dg 100... as /dg -100... */
+function chatIdPullVariants(raw) {
+  const s = String(raw).trim();
+  const variants = new Set([s]);
+  if (/^\d+$/.test(s)) {
+    variants.add(`-${s}`);
+  } else if (/^-\d+$/.test(s)) {
+    variants.add(s.slice(1));
+  }
+  return [...variants];
+}
+
 async function removeEmptyGroupSets() {
   await BroadcastGroupSet.deleteMany({ chatIds: { $size: 0 } });
 }
@@ -316,35 +328,51 @@ const handleBroadcastDg = async (bot, msg) => {
   const arg = argsAfterCommand(source);
 
   if (!arg) {
-    const cid = msg.chat.id.toString();
-    const r = await BroadcastGroupSet.updateMany({}, { $pull: { chatIds: cid } });
+    const variants = chatIdPullVariants(msg.chat.id.toString());
+    const r = await BroadcastGroupSet.updateMany(
+      {},
+      { $pull: { chatIds: { $in: variants } } }
+    );
     await removeEmptyGroupSets();
     await bot.sendMessage(
       msg.chat.id,
-      `已将本群从所有集合中移除（匹配 ${r.matchedCount}）。`
+      r.modifiedCount
+        ? `已将本群从 ${r.modifiedCount} 个集合中移除。`
+        : '本群不在任何集合中。'
     );
     return;
   }
 
   if (isNumericChatId(arg)) {
-    const idStr = arg.trim();
-    const r = await BroadcastGroupSet.updateMany({}, { $pull: { chatIds: idStr } });
+    const variants = chatIdPullVariants(arg);
+    const r = await BroadcastGroupSet.updateMany(
+      {},
+      { $pull: { chatIds: { $in: variants } } }
+    );
     await removeEmptyGroupSets();
+    const shown = variants.find((v) => v.startsWith('-')) || variants[0];
     await bot.sendMessage(
       msg.chat.id,
-      `已将聊天 ${idStr} 从所有集合中移除（匹配 ${r.matchedCount}）。`
+      r.modifiedCount
+        ? `已将聊天 ${shown} 从 ${r.modifiedCount} 个集合中移除。`
+        : `集合中没有聊天 ${shown}（也已尝试 ${variants.join(' / ')}）。`
     );
     return;
   }
 
   const tag = arg.toLowerCase();
-  const cid = msg.chat.id.toString();
-  const r = await BroadcastGroupSet.updateOne({ tag }, { $pull: { chatIds: cid } });
+  const variants = chatIdPullVariants(msg.chat.id.toString());
+  const r = await BroadcastGroupSet.updateOne(
+    { tag },
+    { $pull: { chatIds: { $in: variants } } }
+  );
   await removeEmptyGroupSets();
-  if (r.matchedCount) {
+  if (!r.matchedCount) {
+    await bot.sendMessage(msg.chat.id, `没有集合 "${tag}"。`);
+  } else if (r.modifiedCount) {
     await bot.sendMessage(msg.chat.id, `已将本群从集合 "${tag}" 中移除。`);
   } else {
-    await bot.sendMessage(msg.chat.id, `没有集合 "${tag}"。`);
+    await bot.sendMessage(msg.chat.id, `本群不在集合 "${tag}" 中。`);
   }
 };
 
