@@ -68,6 +68,35 @@ const formatRateValue = (num) => {
 };
 
 /**
+ * Định dạng hệ số *x trong dòng giao dịch: (1 ± rate/100).
+ * Tối đa 3 chữ số thập phân; nếu chữ số thứ 3 khác 0 thì hiện đủ 3,
+ * không làm tròn mất thành 2 chữ số như toFixed(2) trước đây.
+ * Ví dụ: 0.985 → "0.985", 0.98 → "0.98", 1 → "1.00"
+ * @param {Number} num
+ * @returns {String}
+ */
+const formatRateFactor = (num) => {
+  const n = Number(num);
+  if (!Number.isFinite(n)) {
+    return '0';
+  }
+
+  const rounded3 = Math.round(n * 1000) / 1000;
+  const with3 = rounded3.toFixed(3);
+
+  if (with3.endsWith('0')) {
+    return rounded3.toFixed(2);
+  }
+  return with3;
+};
+
+/** true khi hệ số *x trung tính (hiển thị "/" thay vì *1.00/) */
+const isNeutralRateFactor = (rateFactorStr) => {
+  const n = Number(rateFactorStr);
+  return Number.isFinite(n) && Math.abs(n - 1) < 1e-9;
+};
+
+/**
  * Chuyển giá trị báo cáo (số thô hoặc chuỗi đã format có dấu phẩy nghìn) sang số.
  * parseFloat("5,186,000") chỉ được 5 — gây sai tổng 总入款/总出款.
  */
@@ -755,7 +784,7 @@ const isTrc20Address = (str) => {
 };
 
 /**
- * Format date in US style (MM/DD/YYYY)
+ * Format date in US style (YYYY/MM/DD) — fallback text khi client chưa hỗ trợ date entity
  * @param {Date} date - Date to format
  * @returns {String} - Formatted date string
  */
@@ -773,6 +802,100 @@ const formatDateUS = (date) => {
  */
 const formatTimeString = (date) => {
   return date.toLocaleTimeString('en-US', { timeZone: 'Asia/Phnom_Penh', hour12: false });
+};
+
+const escapeHtml = (text) =>
+  String(text == null ? '' : text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+/**
+ * Telegram Date Formatting (HTML): tự theo local timezone của người xem.
+ * format: r | w?[dD]?[tT]?  — ví dụ d (ngày ngắn), T (giờ dài HH:mm:ss)
+ * @param {Date|string|number} date
+ * @param {string} [format]
+ * @param {string} [fallbackText]
+ * @returns {string}
+ */
+const formatTelegramDateTimeHtml = (date, format = 'T', fallbackText = '') => {
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) {
+    return escapeHtml(fallbackText || '');
+  }
+  const unix = Math.floor(d.getTime() / 1000);
+  const fallback =
+    fallbackText ||
+    (format === 'd' || format === 'D' || format === 'w' || /^w?[dD]$/.test(format)
+      ? formatDateUS(d)
+      : formatTimeString(d));
+  const formatAttr = format ? ` format="${escapeHtml(format)}"` : '';
+  return `<tg-time unix="${unix}"${formatAttr}>${escapeHtml(fallback)}</tg-time>`;
+};
+
+/**
+ * Đổi fragment Markdown legacy trong dòng details sang HTML an toàn.
+ * Hỗ trợ *bold*, \`code\`, [text](url), và \\* → *
+ */
+const markdownFragmentToHtml = (fragment) => {
+  if (!fragment) return '';
+  let s = String(fragment);
+  // Bỏ escape Markdown cũ của dấu *
+  s = s.replace(/\\\*/g, '\u0001');
+  // Links [text](url)
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, label, url) => {
+    return `\u0002${encodeURIComponent(label)}\u0003${encodeURIComponent(url)}\u0004`;
+  });
+  // Inline code
+  s = s.replace(/`([^`]+)`/g, (_, code) => `\u0005${encodeURIComponent(code)}\u0006`);
+  // Bold *text*
+  s = s.replace(/\*([^*]+)\*/g, (_, bold) => `\u0007${encodeURIComponent(bold)}\u0008`);
+  s = escapeHtml(s);
+  s = s.replace(/\u0001/g, '*');
+  s = s.replace(/\u0002([^\u0003]+)\u0003([^\u0004]+)\u0004/g, (_, label, url) => {
+    return `<a href="${decodeURIComponent(url)}">${escapeHtml(decodeURIComponent(label))}</a>`;
+  });
+  s = s.replace(/\u0005([^\u0006]+)\u0006/g, (_, code) => `<code>${escapeHtml(decodeURIComponent(code))}</code>`);
+  s = s.replace(/\u0007([^\u0008]+)\u0008/g, (_, bold) => `<b>${escapeHtml(decodeURIComponent(bold))}</b>`);
+  return s;
+};
+
+/**
+ * Render dòng giao dịch: giờ dùng Date Formatting, phần còn lại từ details Markdown → HTML.
+ * @param {{ details?: string, timestamp?: Date|string|number, messageId?: string, chatLink?: string }} entry
+ * @param {string} markerHtml
+ * @param {string} idLabel - text id trong link (vd "3" hoặc "!2")
+ * @param {boolean} [idPrefixed=false] - true → (id[3](link)), false → ([!2](link))
+ */
+const formatReportEntryLineHtml = (entry, markerHtml, idLabel, idPrefixed = false) => {
+  const details = entry?.details || '';
+  const ts = entry?.timestamp ? new Date(entry.timestamp) : null;
+  const timeMatch = details.match(/^`([^`]+)`(\s*)/);
+  let rest = details;
+  let timeHtml = '';
+
+  if (ts && !Number.isNaN(ts.getTime())) {
+    timeHtml = formatTelegramDateTimeHtml(ts, 'T', timeMatch ? timeMatch[1] : formatTimeString(ts));
+    rest = timeMatch ? details.slice(timeMatch[0].length) : details.replace(/^\S+\s*/, '');
+  } else if (timeMatch) {
+    timeHtml = `<code>${escapeHtml(timeMatch[1])}</code>`;
+    rest = details.slice(timeMatch[0].length);
+  }
+
+  const restHtml = markdownFragmentToHtml(rest);
+  let line = `${timeHtml}${timeMatch && timeMatch[2] ? timeMatch[2] : ' '}${markerHtml || ''}${restHtml}`;
+
+  if (entry?.messageId && entry?.chatLink) {
+    const safeHref = escapeHtml(entry.chatLink);
+    const safeId = escapeHtml(String(idLabel));
+    if (idPrefixed) {
+      line += ` (id<a href="${safeHref}">${safeId}</a>)`;
+    } else {
+      line += ` (<a href="${safeHref}">${safeId}</a>)`;
+    }
+  }
+  return line;
 };
 
 /**
@@ -811,12 +934,13 @@ const getGroupNumberFormat = async (chatId) => {
 };
 
 /**
- * Marker Markdown (legacy) cho dòng giao dịch mới nhất trong báo cáo.
+ * Marker HTML cho dòng giao dịch mới nhất trong báo cáo.
  */
-const newestEntryMarker = (isNewest) => (isNewest ? '*📌* ' : '');
+const newestEntryMarker = (isNewest) => (isNewest ? '<b>📌</b> ' : '');
 
 /**
  * Chèn marker ngay sau `` `HH:MM:SS` `` (trước số tiền / phần còn lại của details).
+ * Giữ cho tương thích nội bộ / test cũ (Markdown).
  */
 const insertNewestMarkerAfterTime = (details, marker) => {
   if (!marker || !details) return details || '';
@@ -824,167 +948,128 @@ const insertNewestMarkerAfterTime = (details, marker) => {
 };
 
 /**
- * Tạo tin nhắn telegram không sử dụng markdown
+ * Báo cáo + / - / % (HTML + Telegram Date Formatting).
+ * Ngày/giờ hiện theo timezone local của từng người xem; bấm được để copy / calendar / reminder.
  * @param {Object} jsonData - Dữ liệu cần format
  * @param {String} numberFormat - Định dạng số ('default' hoặc 'formatted')
- * @returns {String} - Chuỗi đã định dạng
+ * @returns {String} - Chuỗi HTML đã định dạng
  */
 const formatTelegramMessage = (jsonData, numberFormat = 'formatted') => {
   let output = '';
-  
-  // Date header - using US format (MM/DD/YYYY)
+
   const currentDate = new Date();
-  const formattedDate = formatDateUS(currentDate);
-  output += `*${formattedDate}*\n`;
-  
-  // Deposits section
+  output += `${formatTelegramDateTimeHtml(currentDate, 'd', formatDateUS(currentDate))}\n`;
+
   if (jsonData.depositData && jsonData.depositData.entries && jsonData.depositData.entries.length > 0) {
     const depositCount = jsonData.depositData.totalCount || jsonData.depositData.entries.length;
-    output += `*已入账* (${depositCount}笔):\n`;
-    
-    // Format giao dịch với ID và link
+    output += `<b>已入账</b> (${depositCount}笔):\n`;
+
     jsonData.depositData.entries.forEach((entry, index) => {
-      // Sử dụng ID từ entry thay vì tạo ID mới
+      if (!(entry.messageId && entry.chatLink)) return;
       const id = entry.id || (entry.index + 1);
-      const newestMarker = newestEntryMarker(index === 0);
-      
-      if (entry.messageId && entry.chatLink) {
-        // Tạo link đến tin nhắn gốc với ID là phần clickable
-        const line = insertNewestMarkerAfterTime(entry.details, newestMarker);
-        output += `${line} (id[${id}](${entry.chatLink}))\n`;
-      }
+      output += `${formatReportEntryLineHtml(entry, newestEntryMarker(index === 0), id, true)}\n`;
     });
     output += '\n';
   } else {
-    output += "*已入账*(0笔):\n\n";
+    output += '<b>已入账</b>(0笔):\n\n';
   }
-  
-  // Payments section
+
   if (jsonData.paymentData && jsonData.paymentData.entries && jsonData.paymentData.entries.length > 0) {
     const paymentCount = jsonData.paymentData.totalCount || jsonData.paymentData.entries.length;
-    output += `*已下发* (${paymentCount}笔):\n`;
-    
-    // Format giao dịch với ID và link
+    output += `<b>已下发</b> (${paymentCount}笔):\n`;
+
     jsonData.paymentData.entries.forEach((entry, index) => {
-      // Dùng ký hiệu ! trước ID của payment
-      // Sử dụng ID từ entry thay vì tạo ID mới
+      if (!(entry.messageId && entry.chatLink)) return;
       const id = `!${entry.id || (entry.index + 1)}`;
-      const newestMarker = newestEntryMarker(index === 0);
-      
-      if (entry.messageId && entry.chatLink) {
-        // Tạo link đến tin nhắn gốc với ID là phần clickable
-        const line = insertNewestMarkerAfterTime(entry.details, newestMarker);
-        output += `${line} ([${id}](${entry.chatLink}))\n`;
-      }
+      output += `${formatReportEntryLineHtml(entry, newestEntryMarker(index === 0), id, false)}\n`;
     });
     output += '\n';
   } else {
-    output += "*已下发*(0笔):\n\n";
+    output += '<b>已下发</b>(0笔):\n\n';
   }
-  output += `总入款💰: ${formatSmart(coerceReportNumber(jsonData.totalAmount), numberFormat)}\n`;
-  // Rate information
-  const rateInfo = `费率： ${jsonData.rate}\n汇率： ${jsonData.exchangeRate}\n`;
- 
-  // Thêm ví dụ nếu có
+
+  output += `总入款💰: ${escapeHtml(formatSmart(coerceReportNumber(jsonData.totalAmount), numberFormat))}\n`;
+  const rateInfo = `费率： ${escapeHtml(String(jsonData.rate))}\n汇率： ${escapeHtml(String(jsonData.exchangeRate))}\n`;
+
   let rateInfoWithExample = rateInfo;
   if (jsonData.example) {
-    rateInfoWithExample += `\n例如: 100000 = ${formatSmart(coerceReportNumber(jsonData.example), numberFormat)} ${jsonData.currencyUnit || 'USDT'}`;
+    rateInfoWithExample += `\n例如: 100000 = ${escapeHtml(formatSmart(coerceReportNumber(jsonData.example), numberFormat))} ${escapeHtml(jsonData.currencyUnit || 'USDT')}`;
   }
-  
+
   output += `${rateInfoWithExample}\n`;
-  
-  // Summary section
-  output += `应下发 : ${formatSmart(coerceReportNumber(jsonData.totalUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
-  output += `已下发 : ${formatSmart(coerceReportNumber(jsonData.paidUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
-  output += `未下发 : ${formatSmart(coerceReportNumber(jsonData.remainingUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}`;
-  
-  // Cards section (if present)
+
+  output += `应下发 : ${escapeHtml(formatSmart(coerceReportNumber(jsonData.totalUSDT), numberFormat))}  ${escapeHtml(jsonData.currencyUnit || 'USDT')}\n`;
+  output += `已下发 : ${escapeHtml(formatSmart(coerceReportNumber(jsonData.paidUSDT), numberFormat))}  ${escapeHtml(jsonData.currencyUnit || 'USDT')}\n`;
+  output += `未下发 : ${escapeHtml(formatSmart(coerceReportNumber(jsonData.remainingUSDT), numberFormat))}  ${escapeHtml(jsonData.currencyUnit || 'USDT')}`;
+
   if (jsonData.cards && jsonData.cards.length > 0) {
-    output += `\n卡额度 💳:\n${jsonData.cards.join("\n")}`;
+    output += `\n卡额度 💳:\n${jsonData.cards.map((c) => escapeHtml(String(c))).join('\n')}`;
   }
-  
+
   return output;
 };
 
 /**
- * Format tin nhắn Telegram với thông tin đầy đủ bao gồm 出款费率 và 出款汇率
+ * Format tin nhắn Telegram với thông tin đầy đủ bao gồm 出款费率 và 出款汇率 (HTML + Date Formatting)
  */
 const formatWithdrawRateMessage = (jsonData, numberFormat = 'formatted') => {
   let output = '';
-  
-  // Date header - using US format (MM/DD/YYYY)
+
   const currentDate = new Date();
-  const formattedDate = formatDateUS(currentDate);
-  output += `*${formattedDate}*\n`;
-  
-  // Deposits section
+  output += `${formatTelegramDateTimeHtml(currentDate, 'd', formatDateUS(currentDate))}\n`;
+
   if (jsonData.depositData && jsonData.depositData.entries && jsonData.depositData.entries.length > 0) {
     const depositCount = jsonData.depositData.totalCount || jsonData.depositData.entries.length;
-    output += `*已入账* (${depositCount}笔):\n`;
-    
+    output += `<b>已入账</b> (${depositCount}笔):\n`;
+
     jsonData.depositData.entries.forEach((entry, index) => {
+      if (!(entry.messageId && entry.chatLink)) return;
       const id = entry.id || (entry.index + 1);
-      const newestMarker = newestEntryMarker(index === 0);
-      
-      if (entry.messageId && entry.chatLink) {
-        const line = insertNewestMarkerAfterTime(entry.details, newestMarker);
-        output += `${line} (id[${id}](${entry.chatLink}))\n`;
-      }
+      output += `${formatReportEntryLineHtml(entry, newestEntryMarker(index === 0), id, true)}\n`;
     });
     output += '\n';
   } else {
-    output += "*已入账*(0笔):\n\n";
+    output += '<b>已入账</b>(0笔):\n\n';
   }
-  
-  // Payments section
+
   if (jsonData.paymentData && jsonData.paymentData.entries && jsonData.paymentData.entries.length > 0) {
     const paymentCount = jsonData.paymentData.totalCount || jsonData.paymentData.entries.length;
-    output += `*已下发* (${paymentCount}笔):\n`;
-    
+    output += `<b>已下发</b> (${paymentCount}笔):\n`;
+
     jsonData.paymentData.entries.forEach((entry, index) => {
+      if (!(entry.messageId && entry.chatLink)) return;
       const id = `!${entry.id || (entry.index + 1)}`;
-      const newestMarker = newestEntryMarker(index === 0);
-      
-      if (entry.messageId && entry.chatLink) {
-        const line = insertNewestMarkerAfterTime(entry.details, newestMarker);
-        output += `${line} ([${id}](${entry.chatLink}))\n`;
-      }
+      output += `${formatReportEntryLineHtml(entry, newestEntryMarker(index === 0), id, false)}\n`;
     });
     output += '\n';
   } else {
-    output += "*已下发*(0笔):\n\n";
+    output += '<b>已下发</b>(0笔):\n\n';
   }
-  
-  // Thống kê chi tiết  
-  output += `总入款: ${formatSmart(coerceReportNumber(jsonData.totalDepositVND), numberFormat)}|  ${formatSmart(coerceReportNumber(jsonData.totalDepositUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
-  output += `总出款: ${formatSmart(coerceReportNumber(jsonData.totalWithdrawVND), numberFormat)}|  ${formatSmart(coerceReportNumber(jsonData.totalWithdrawUSDT), numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
-  
-  // Rate information
-  output += `入款费率：${jsonData.rate} | 入款汇率：${jsonData.exchangeRate}\n`;
-  output += `出款费率：${jsonData.withdrawRate} | 出款汇率：${jsonData.withdrawExchangeRate}\n`;
-  
-  // Ví dụ cho 出款
+
+  output += `总入款: ${escapeHtml(formatSmart(coerceReportNumber(jsonData.totalDepositVND), numberFormat))}|  ${escapeHtml(formatSmart(coerceReportNumber(jsonData.totalDepositUSDT), numberFormat))}  ${escapeHtml(jsonData.currencyUnit || 'USDT')}\n`;
+  output += `总出款: ${escapeHtml(formatSmart(coerceReportNumber(jsonData.totalWithdrawVND), numberFormat))}|  ${escapeHtml(formatSmart(coerceReportNumber(jsonData.totalWithdrawUSDT), numberFormat))}  ${escapeHtml(jsonData.currencyUnit || 'USDT')}\n`;
+
+  output += `入款费率：${escapeHtml(String(jsonData.rate))} | 入款汇率：${escapeHtml(String(jsonData.exchangeRate))}\n`;
+  output += `出款费率：${escapeHtml(String(jsonData.withdrawRate))} | 出款汇率：${escapeHtml(String(jsonData.withdrawExchangeRate))}\n`;
+
   if (jsonData.withdrawExample) {
-    output += `例如出款: 100000 = ${formatSmart(coerceReportNumber(jsonData.withdrawExample), numberFormat)} ${jsonData.currencyUnit || 'USDT'}\n`;
+    output += `例如出款: 100000 = ${escapeHtml(formatSmart(coerceReportNumber(jsonData.withdrawExample), numberFormat))} ${escapeHtml(jsonData.currencyUnit || 'USDT')}\n`;
   }
-  
-  // Tính toán số liệu mới
+
   const totalDepositUSDT = coerceReportNumber(jsonData.totalDepositUSDT);
   const totalWithdrawUSDT = coerceReportNumber(jsonData.totalWithdrawUSDT);
   const paidUSDT = coerceReportNumber(jsonData.paidUSDT);
-  const shouldPayUSDT = totalDepositUSDT - totalWithdrawUSDT; // 应下发 = usdt总入款 - usdt总出款
-  const unpaidUSDT = shouldPayUSDT - paidUSDT; // 未下发 = 应下发 - 已下发
-  
-  // Summary section với logic mới
-  output += `\n应下发 : ${formatSmart(shouldPayUSDT, numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
-  output += `已下发 : ${formatSmart(paidUSDT, numberFormat)}  ${jsonData.currencyUnit || 'USDT'}\n`;
-  output += `未下发 : ${formatSmart(unpaidUSDT, numberFormat)}  ${jsonData.currencyUnit || 'USDT'}`;
-  
-  // Cards section (if present)
+  const shouldPayUSDT = totalDepositUSDT - totalWithdrawUSDT;
+  const unpaidUSDT = shouldPayUSDT - paidUSDT;
+
+  output += `\n应下发 : ${escapeHtml(formatSmart(shouldPayUSDT, numberFormat))}  ${escapeHtml(jsonData.currencyUnit || 'USDT')}\n`;
+  output += `已下发 : ${escapeHtml(formatSmart(paidUSDT, numberFormat))}  ${escapeHtml(jsonData.currencyUnit || 'USDT')}\n`;
+  output += `未下发 : ${escapeHtml(formatSmart(unpaidUSDT, numberFormat))}  ${escapeHtml(jsonData.currencyUnit || 'USDT')}`;
+
   if (jsonData.cards && jsonData.cards.length > 0) {
-    output += `\n卡额度 💳:\n${jsonData.cards.join("\n")}`;
+    output += `\n卡额度 💳:\n${jsonData.cards.map((c) => escapeHtml(String(c))).join('\n')}`;
   }
-  
+
   return output;
 };
 
@@ -992,6 +1077,8 @@ module.exports = {
   formatSmart,
   formatNumberWithCommas,
   formatRateValue,
+  formatRateFactor,
+  isNeutralRateFactor,
   isMathExpression,
   isSingleNumber,
   isValidNumber,
@@ -1004,6 +1091,8 @@ module.exports = {
   formatSenderForReportMarkdown,
   formatDateUS,
   formatTimeString,
+  formatTelegramDateTimeHtml,
+  escapeHtml,
   getUserNumberFormat,
   getGroupNumberFormat
 }; 
