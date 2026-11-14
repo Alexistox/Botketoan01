@@ -2,7 +2,7 @@ const Group = require('../models/Group');
 const Transaction = require('../models/Transaction');
 const Card = require('../models/Card');
 const Config = require('../models/Config');
-const { formatSmart, formatRateValue, formatTelegramMessage, formatWithdrawRateMessage, formatSenderForReportMarkdown, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
+const { formatSmart, formatRateValue, formatRateFactor, isNeutralRateFactor, formatTelegramMessage, formatWithdrawRateMessage, formatSenderForReportMarkdown, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
 const { getDepositHistory, getPaymentHistory, getCardSummary } = require('./groupCommands');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
 const { sendLongMarkdownMessage } = require('../utils/telegramChunks');
@@ -152,8 +152,8 @@ const handlePlusCommand = async (bot, msg) => {
     const yValue = group.exchangeRate;
     const newUSDT = (amountVND / yValue) * (1 - xValue / 100);
     
-    // Tính toán phần (1-(费率/100))
-    const rateFactor = (1 - xValue / 100).toFixed(2);
+    // Tính toán phần (1-(费率/100)) — giữ tới 3 chữ số thập phân nếu cần
+    const rateFactor = formatRateFactor(1 - xValue / 100);
     
     // Cập nhật group
     group.totalVND += amountVND;
@@ -175,7 +175,7 @@ const handlePlusCommand = async (bot, msg) => {
     
     // Tạo chi tiết giao dịch
     let details;
-    const rateDisplay = rateFactor === '1.00' ? '/' : `\\*${rateFactor}/`;
+    const rateDisplay = isNeutralRateFactor(rateFactor) ? '/' : `\\*${rateFactor}/`;
     if (cardCode) {
       details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} (${cardCode}) ${senderMd}`;
     } else {
@@ -360,14 +360,14 @@ const handleMinusCommand = async (bot, msg) => {
       xValue = group.withdrawRate;
       yValue = group.withdrawExchangeRate;
       minusUSDT = (amountVND / yValue) * (1 + xValue / 100);
-      rateFactor = (1 + xValue / 100).toFixed(2);
+      rateFactor = formatRateFactor(1 + xValue / 100);
       useWithdrawRate = true;
     } else {
       // Sử dụng 费率 và 汇率 cũ
       xValue = group.rate;
       yValue = group.exchangeRate;
       minusUSDT = (amountVND / yValue) * (1 - xValue / 100);
-      rateFactor = (1 - xValue / 100).toFixed(2);
+      rateFactor = formatRateFactor(1 - xValue / 100);
     }
     
     // Cập nhật group
@@ -399,7 +399,7 @@ const handleMinusCommand = async (bot, msg) => {
     // Tạo chi tiết giao dịch
     let details;
     const operator = useWithdrawRate ? '+' : '-';
-    const rateDisplay = rateFactor === '1.00' ? '/' : `\\*${rateFactor}/`;
+    const rateDisplay = isNeutralRateFactor(rateFactor) ? '/' : `\\*${rateFactor}/`;
     if (cardCode) {
       details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} (${cardCode}) ${senderMd}`;
     } else {

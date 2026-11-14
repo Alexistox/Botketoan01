@@ -68,6 +68,35 @@ const formatRateValue = (num) => {
 };
 
 /**
+ * Định dạng hệ số *x trong dòng giao dịch: (1 ± rate/100).
+ * Tối đa 3 chữ số thập phân; nếu chữ số thứ 3 khác 0 thì hiện đủ 3,
+ * không làm tròn mất thành 2 chữ số như toFixed(2) trước đây.
+ * Ví dụ: 0.985 → "0.985", 0.98 → "0.98", 1 → "1.00"
+ * @param {Number} num
+ * @returns {String}
+ */
+const formatRateFactor = (num) => {
+  const n = Number(num);
+  if (!Number.isFinite(n)) {
+    return '0';
+  }
+
+  const rounded3 = Math.round(n * 1000) / 1000;
+  const with3 = rounded3.toFixed(3);
+
+  if (with3.endsWith('0')) {
+    return rounded3.toFixed(2);
+  }
+  return with3;
+};
+
+/** true khi hệ số *x trung tính (hiển thị "/" thay vì *1.00/) */
+const isNeutralRateFactor = (rateFactorStr) => {
+  const n = Number(rateFactorStr);
+  return Number.isFinite(n) && Math.abs(n - 1) < 1e-9;
+};
+
+/**
  * Chuyển giá trị báo cáo (số thô hoặc chuỗi đã format có dấu phẩy nghìn) sang số.
  * parseFloat("5,186,000") chỉ được 5 — gây sai tổng 总入款/总出款.
  */
@@ -1048,6 +1077,8 @@ module.exports = {
   formatSmart,
   formatNumberWithCommas,
   formatRateValue,
+  formatRateFactor,
+  isNeutralRateFactor,
   isMathExpression,
   isSingleNumber,
   isValidNumber,
