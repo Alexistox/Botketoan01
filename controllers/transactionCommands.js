@@ -138,7 +138,7 @@ const handlePlusCommand = async (bot, msg) => {
       const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
       
       await sendLongMarkdownMessage(bot, chatId, response, {
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         reply_markup: keyboard,
         ...replyToSourceBillOpts(msg)
       });
@@ -279,7 +279,7 @@ const handlePlusCommand = async (bot, msg) => {
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
     await sendLongMarkdownMessage(bot, chatId, response, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: keyboard,
       ...replyToSourceBillOpts(msg)
     });
@@ -509,7 +509,7 @@ const handleMinusCommand = async (bot, msg) => {
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
     await sendLongMarkdownMessage(bot, chatId, response, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: keyboard,
       ...replyToSourceBillOpts(msg)
     });
@@ -708,7 +708,7 @@ const handlePercentCommand = async (bot, msg) => {
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
     await sendLongMarkdownMessage(bot, chatId, response, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: keyboard,
       ...replyToSourceBillOpts(msg)
     });
@@ -984,12 +984,12 @@ const handleSkipCommand = async (bot, msg) => {
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
     await bot.sendMessage(chatId, `✅ 成功删除ID为 ${id}${isPaymentId ? '!' : ''} 的交易记录，所有金额已重新计算。`, { 
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: keyboard
     });
     
     await sendLongMarkdownMessage(bot, chatId, response, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: keyboard
     });
     

@@ -317,7 +317,7 @@ const handleReportCommand = async (bot, replyChatId, senderName, userId = null, 
     const keyboard = showButtons ? await getInlineKeyboard(reportChatId) : null;
     
     await sendLongMarkdownMessage(bot, replyChatId, response, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: keyboard
     });
     
