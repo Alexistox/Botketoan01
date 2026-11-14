@@ -474,9 +474,9 @@ const handleHelp2Command = async (bot, chatId) => {
 *2) Quy đổi & biểu thức*
 - \`/t <VND>\`: đổi VND -> USDT
 - \`/v <USDT>\`: đổi USDT -> VND
-- \`/z0\`: Binance P2P USDT/VND cột mua (mức 100tr, bỏ qua thương nhân đầu, 10 giá)
-- \`/z1\`: OKX P2P USDT/VND cột mua (mức 100tr, bỏ qua thương nhân đầu, 10 giá)
-- \`/z2\`: Bybit P2P USDT/VND cột mua (mức 100tr, bỏ qua thương nhân đầu, 10 giá)
+- \`/z0\`: Binance P2P USDT/VND 买入价（1亿越南盾，跳过首位商家，10个报价）
+- \`/z1\`: OKX P2P USDT/VND 买入价（1亿越南盾，跳过首位商家，10个报价）
+- \`/z2\`: Bybit P2P USDT/VND 买入价（1亿越南盾，跳过首位商家，10个报价）
 - Nhập biểu thức toán trực tiếp: ví dụ \`12w+5\`, \`1亿+2亿\`, \`1y/2\`
 - Hỗ trợ ký hiệu số: \`k\`, \`m\`, \`w\`, \`万\`, \`亿\`, \`y\`, \`个亿\`
 
