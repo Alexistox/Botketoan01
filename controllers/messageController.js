@@ -18,7 +18,10 @@ const Card = require('../models/Card');
 const User = require('../models/User');
 const Config = require('../models/Config');
 const MessageLog = require('../models/MessageLog');
-const { deleteRegisteredEphemeralErrors } = require('../utils/ephemeralBotMessages');
+const {
+  deleteRegisteredEphemeralErrors,
+  notifyNoOperator
+} = require('../utils/ephemeralBotMessages');
 
 const {
   handleCalculateUsdtCommand,
@@ -48,7 +51,8 @@ const {
 } = require('./imageCommands');
 
 const {
-  handleReport1Command
+  handleReportWebCommand,
+  handleReportHCommand
 } = require('./reportCommands');
 
 const {
@@ -131,7 +135,7 @@ const handleMessage = async (bot, msg, cache) => {
           const modifiedMsg = { ...msg, text: msg.caption };
           await handlePlusCommand(bot, modifiedMsg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -149,7 +153,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleBankNotificationReply(bot, msg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -163,7 +167,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handlePicModeReply(bot, msg, msg.text);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -175,7 +179,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleBroadcastCm(bot, msg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -191,7 +195,7 @@ const handleMessage = async (bot, msg, cache) => {
         const modifiedMsg = { ...msg, text: msg.caption.trim() };
         await handleSetUsdtAddressCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -206,17 +210,17 @@ const handleMessage = async (bot, msg, cache) => {
     
     // Xử lý các lệnh tiếng Trung
     if (messageText === '上课' || messageText === 'Start' || messageText === '开始新账单') {
-      // Kiểm tra quyền Operator
+      // Kiểm tra quyền Operator — clear ngay như cũ
       if (await isUserOperator(userId, chatId)) {
         await handleClearCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
     
     if (messageText === '结束') {
-      // Xử lý "结束" giống như "/report"
+      // Báo cáo Telegram phiên hiện tại (sau 上课); web dashboard dùng /report
       await handleReportCommand(bot, chatId, firstName, userId);
       return;
     }
@@ -226,7 +230,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleRateCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -236,7 +240,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleExchangeRateCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -246,7 +250,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handlePercentCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -267,7 +271,7 @@ const handleMessage = async (bot, msg, cache) => {
         }
         await handleDualRateCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -286,7 +290,7 @@ const handleMessage = async (bot, msg, cache) => {
         }
         await handleSkipCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -302,7 +306,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/op ' + messageText.substring(prefixLength).trim();
         await handleAddOperatorInGroupCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -318,7 +322,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/removeop ' + messageText.substring(prefixLength).trim();
         await handleRemoveOperatorInGroupCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -350,7 +354,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/usdt ' + messageText.substring(prefixLength).trim();
         await handleSetUsdtAddressCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -361,7 +365,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/usdtxn ' + messageText.substring(prefixLength).trim();
         await handleUsdtConfirmCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -372,7 +376,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/usdtxxn ' + messageText.substring(prefixLength).trim();
         await handleUsdtRemoveConfirmCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -383,7 +387,7 @@ const handleMessage = async (bot, msg, cache) => {
         modifiedMsg.text = '/usdtxxn ' + messageText.substring(prefixLength).trim();
         await handleUsdtRemoveConfirmCommand(bot, modifiedMsg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -395,7 +399,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserAdmin(userId)) {
         await handleRemoveUsdtCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -409,7 +413,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleBroadcastGlist(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -418,7 +422,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleBroadcastCmlist(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -427,7 +431,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleBroadcastSend(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -436,7 +440,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleBroadcastG(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -445,7 +449,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleBroadcastDm(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -454,7 +458,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleBroadcastDg(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -522,7 +526,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleCurrencyUnitCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -557,7 +561,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleSkipCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -567,7 +571,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleDualRateCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -577,7 +581,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleWithdrawRateCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -587,7 +591,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleQrToggleCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -597,7 +601,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleHideCardCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -607,7 +611,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleShowCardCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -617,7 +621,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleListHiddenCardsCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -627,7 +631,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleDeleteCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -638,7 +642,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleAddInlineCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -648,7 +652,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleRemoveInlineCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -658,7 +662,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await displayInlineButtons(bot, chatId);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -668,7 +672,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserAdmin(userId)) {
           await handleSetUsdtAddressCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -683,32 +687,44 @@ const handleMessage = async (bot, msg, cache) => {
         return;
       }
       
-      if (messageText === '/report' || messageText.startsWith('/report ')) {
-        const parts = messageText.trim().split(/\s+/).filter(Boolean);
-        let reportOpts = {};
-        if (parts.length >= 2) {
-          const targetId = normalizeReportChatIdArg(parts[1]);
-          if (!targetId) {
-            bot.sendMessage(
-              chatId,
-              "无效的群组 ID。示例：`/report -1001234567890` 或 `/report 1234567890`"
-            );
+      {
+        const reportParts = messageText.trim().split(/\s+/).filter(Boolean);
+        const reportCmd = reportParts[0] ? reportParts[0].split('@')[0] : '';
+        if (reportCmd === '/report' || reportCmd === '/report1') {
+          // /report h [群组ID] — lịch sử rich/Excel theo từng phiên 上课
+          const histArg = reportParts[1] && String(reportParts[1]).toLowerCase();
+          if (reportCmd === '/report' && histArg === 'h') {
+            let reportHOpts = {};
+            if (reportParts.length >= 3) {
+              const targetId = normalizeReportChatIdArg(reportParts[2]);
+              if (!targetId) {
+                bot.sendMessage(
+                  chatId,
+                  "无效的群组 ID。示例：`/report h -1001234567890` 或 `/report h 1234567890`"
+                );
+                return;
+              }
+              reportHOpts = { reportChatId: targetId };
+            }
+            await handleReportHCommand(bot, msg, reportHOpts);
             return;
           }
-          reportOpts = { reportChatId: targetId };
+          // /report [群组ID] — website dashboard (thay /report1)
+          let reportWebOpts = {};
+          if (reportCmd === '/report' && reportParts.length >= 2) {
+            const targetId = normalizeReportChatIdArg(reportParts[1]);
+            if (!targetId) {
+              bot.sendMessage(
+                chatId,
+                "无效的群组 ID。示例：`/report -1001234567890` 或 `/report 1234567890`"
+              );
+              return;
+            }
+            reportWebOpts = { reportChatId: targetId };
+          }
+          await handleReportWebCommand(bot, msg, reportWebOpts);
+          return;
         }
-        await handleReportCommand(bot, chatId, firstName, userId, reportOpts);
-        return;
-      }
-      
-      if (messageText === '/report1') {
-        // Kiểm tra quyền Operator
-        if (await isUserOperator(userId, chatId)) {
-          await handleReport1Command(bot, msg);
-        } else {
-          bot.sendMessage(chatId, " ");
-        }
-        return;
       }
 
       if (slashFirst === '/messagelogs') {
@@ -726,7 +742,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handlePicCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -736,7 +752,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOwner(userId)) {
           await handleSetOwnerCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -746,7 +762,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOwner(userId)) {
           await handleRemoveCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -756,7 +772,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOwner(userId)) {
           await handleMigrateDataCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -767,7 +783,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleEnableButtonsCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -777,7 +793,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserOperator(userId, chatId)) {
           await handleDisableButtonsCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -798,7 +814,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserAdmin(userId)) {
           await handleUsdtConfirmCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -808,7 +824,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserAdmin(userId)) {
           await handleUsdtRemoveConfirmCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -817,7 +833,7 @@ const handleMessage = async (bot, msg, cache) => {
         if (await isUserAdmin(userId)) {
           await handleRemoveUsdtCommand(bot, msg);
         } else {
-          bot.sendMessage(chatId, " ");
+          await notifyNoOperator(bot, chatId, userId);
         }
         return;
       }
@@ -845,7 +861,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handlePlusCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }
@@ -855,7 +871,7 @@ const handleMessage = async (bot, msg, cache) => {
       if (await isUserOperator(userId, chatId)) {
         await handleMinusCommand(bot, msg);
       } else {
-        bot.sendMessage(chatId, " ");
+        await notifyNoOperator(bot, chatId, userId);
       }
       return;
     }

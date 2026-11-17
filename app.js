@@ -26,14 +26,27 @@ connectDB();
 // Khởi tạo Telegram Bot
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const bot = new TelegramBot(token, { polling: true });
+const { installBotMessageLogger } = require('./utils/botMessageLogger');
+installBotMessageLogger(bot);
 
-// Xử lý tin nhắn
+// Xử lý tin nhắn (user + sticker + media…). Tin bot gửi được logger bọc _request.
 bot.on('message', async (msg) => {
   try {
     await handleMessage(bot, msg, cache);
   } catch (error) {
     console.error('Error handling message:', error);
     bot.sendMessage(msg.chat.id, "处理消息时出错。请稍后再试。");
+  }
+});
+
+// Channel / thảo luận: log như chat thật (không chạy lệnh kế toán)
+bot.on('channel_post', async (msg) => {
+  try {
+    const MessageLog = require('./models/MessageLog');
+    const { logMessage } = require('./utils/telegramUtils');
+    await logMessage(msg, token, MessageLog);
+  } catch (error) {
+    console.error('Error logging channel_post:', error);
   }
 });
 

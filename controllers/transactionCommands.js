@@ -2,10 +2,11 @@ const Group = require('../models/Group');
 const Transaction = require('../models/Transaction');
 const Card = require('../models/Card');
 const Config = require('../models/Config');
-const { formatSmart, formatRateValue, formatTelegramMessage, formatWithdrawRateMessage, formatSenderForReportMarkdown, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
+const { formatSmart, formatRateValue, formatRateFactor, isNeutralRateFactor, formatTelegramMessage, formatWithdrawRateMessage, formatSenderForReportMarkdown, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
 const { getDepositHistory, getPaymentHistory, getCardSummary } = require('./groupCommands');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
-const { sendLongMarkdownMessage } = require('../utils/telegramChunks');
+const { sendReportWithReveal } = require('../utils/reportStream');
+const { sendPrivateNotice } = require('../utils/ephemeralBotMessages');
 
 /** Sau khi +/-/下发 thành công: xóa tin reply "1"/"2"/"3" (pic / bank). */
 const maybeDeleteReplyTriggerMessage = async (bot, chatId, msg) => {
@@ -79,12 +80,12 @@ const handlePlusCommand = async (bot, msg) => {
     // Tìm hoặc tạo group
     let group = await Group.findOne({ chatId: chatId.toString() });
     if (!group) {
-      bot.sendMessage(chatId, "请设置汇率，费率");
+      await sendPrivateNotice(bot, { chatId, userId: msg.from && msg.from.id, text: "请设置汇率，费率（用 /d 费率/汇率）" });
       return;
     }
     // Kiểm tra tỷ giá
     if (!group.exchangeRate) {
-      bot.sendMessage(chatId, "请设置汇率，费率");
+      await sendPrivateNotice(bot, { chatId, userId: msg.from && msg.from.id, text: "请设置汇率，费率（用 /d 费率/汇率）" });
       return;
     }
     // Lấy đơn vị tiền tệ
@@ -137,8 +138,8 @@ const handlePlusCommand = async (bot, msg) => {
       const showButtons = await getButtonsStatus(chatId);
       const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
       
-      await sendLongMarkdownMessage(bot, chatId, response, {
-        parse_mode: 'Markdown',
+      await sendReportWithReveal(bot, chatId, response, {
+        parse_mode: 'HTML',
         reply_markup: keyboard,
         ...replyToSourceBillOpts(msg)
       });
@@ -152,8 +153,8 @@ const handlePlusCommand = async (bot, msg) => {
     const yValue = group.exchangeRate;
     const newUSDT = (amountVND / yValue) * (1 - xValue / 100);
     
-    // Tính toán phần (1-(费率/100))
-    const rateFactor = (1 - xValue / 100).toFixed(2);
+    // Tính toán phần (1-(费率/100)) — giữ tới 3 chữ số thập phân nếu cần
+    const rateFactor = formatRateFactor(1 - xValue / 100);
     
     // Cập nhật group
     group.totalVND += amountVND;
@@ -175,7 +176,7 @@ const handlePlusCommand = async (bot, msg) => {
     
     // Tạo chi tiết giao dịch
     let details;
-    const rateDisplay = rateFactor === '1.00' ? '/' : `\\*${rateFactor}/`;
+    const rateDisplay = isNeutralRateFactor(rateFactor) ? '/' : `\\*${rateFactor}/`;
     if (cardCode) {
       details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} (${cardCode}) ${senderMd}`;
     } else {
@@ -278,8 +279,8 @@ const handlePlusCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    await sendLongMarkdownMessage(bot, chatId, response, {
-      parse_mode: 'Markdown',
+    await sendReportWithReveal(bot, chatId, response, {
+      parse_mode: 'HTML',
       reply_markup: keyboard,
       ...replyToSourceBillOpts(msg)
     });
@@ -341,13 +342,13 @@ const handleMinusCommand = async (bot, msg) => {
     // Tìm hoặc tạo group
     let group = await Group.findOne({ chatId: chatId.toString() });
     if (!group) {
-      bot.sendMessage(chatId, "请设置汇率，费率");
+      await sendPrivateNotice(bot, { chatId, userId: msg.from && msg.from.id, text: "请设置汇率，费率（用 /d 费率/汇率）" });
       return;
     }
     
     // Kiểm tra tỷ giá
     if (!group.exchangeRate) {
-      bot.sendMessage(chatId, "请设置汇率，费率");
+      await sendPrivateNotice(bot, { chatId, userId: msg.from && msg.from.id, text: "请设置汇率，费率（用 /d 费率/汇率）" });
       return;
     }
     
@@ -360,14 +361,14 @@ const handleMinusCommand = async (bot, msg) => {
       xValue = group.withdrawRate;
       yValue = group.withdrawExchangeRate;
       minusUSDT = (amountVND / yValue) * (1 + xValue / 100);
-      rateFactor = (1 + xValue / 100).toFixed(2);
+      rateFactor = formatRateFactor(1 + xValue / 100);
       useWithdrawRate = true;
     } else {
       // Sử dụng 费率 và 汇率 cũ
       xValue = group.rate;
       yValue = group.exchangeRate;
       minusUSDT = (amountVND / yValue) * (1 - xValue / 100);
-      rateFactor = (1 - xValue / 100).toFixed(2);
+      rateFactor = formatRateFactor(1 - xValue / 100);
     }
     
     // Cập nhật group
@@ -399,7 +400,7 @@ const handleMinusCommand = async (bot, msg) => {
     // Tạo chi tiết giao dịch
     let details;
     const operator = useWithdrawRate ? '+' : '-';
-    const rateDisplay = rateFactor === '1.00' ? '/' : `\\*${rateFactor}/`;
+    const rateDisplay = isNeutralRateFactor(rateFactor) ? '/' : `\\*${rateFactor}/`;
     if (cardCode) {
       details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} (${cardCode}) ${senderMd}`;
     } else {
@@ -508,8 +509,8 @@ const handleMinusCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    await sendLongMarkdownMessage(bot, chatId, response, {
-      parse_mode: 'Markdown',
+    await sendReportWithReveal(bot, chatId, response, {
+      parse_mode: 'HTML',
       reply_markup: keyboard,
       ...replyToSourceBillOpts(msg)
     });
@@ -585,13 +586,13 @@ const handlePercentCommand = async (bot, msg) => {
     // Tìm hoặc tạo group
     let group = await Group.findOne({ chatId: chatId.toString() });
     if (!group) {
-      bot.sendMessage(chatId, "请设置汇率，费率");
+      await sendPrivateNotice(bot, { chatId, userId: msg.from && msg.from.id, text: "请设置汇率，费率（用 /d 费率/汇率）" });
       return;
     }
     
     // Kiểm tra tỷ giá
     if (!group.exchangeRate) {
-      bot.sendMessage(chatId, "请设置汇率，费率");
+      await sendPrivateNotice(bot, { chatId, userId: msg.from && msg.from.id, text: "请设置汇率，费率（用 /d 费率/汇率）" });
       return;
     }
     
@@ -707,8 +708,8 @@ const handlePercentCommand = async (bot, msg) => {
     const showButtons = await getButtonsStatus(chatId);
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
-    await sendLongMarkdownMessage(bot, chatId, response, {
-      parse_mode: 'Markdown',
+    await sendReportWithReveal(bot, chatId, response, {
+      parse_mode: 'HTML',
       reply_markup: keyboard,
       ...replyToSourceBillOpts(msg)
     });
@@ -984,12 +985,12 @@ const handleSkipCommand = async (bot, msg) => {
     const keyboard = showButtons ? await getInlineKeyboard(chatId) : null;
     
     await bot.sendMessage(chatId, `✅ 成功删除ID为 ${id}${isPaymentId ? '!' : ''} 的交易记录，所有金额已重新计算。`, { 
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: keyboard
     });
     
-    await sendLongMarkdownMessage(bot, chatId, response, {
-      parse_mode: 'Markdown',
+    await sendReportWithReveal(bot, chatId, response, {
+      parse_mode: 'HTML',
       reply_markup: keyboard
     });
     
