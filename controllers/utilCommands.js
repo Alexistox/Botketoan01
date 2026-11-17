@@ -4,7 +4,7 @@ const Card = require('../models/Card');
 const Config = require('../models/Config');
 const User = require('../models/User');
 const { formatSmart, formatRateValue, formatTelegramMessage, formatWithdrawRateMessage, parseSpecialNumber, evaluateSpecialExpression, isTrc20Address, formatDateUS, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
-const { sendLongMarkdownMessage } = require('../utils/telegramChunks');
+const { sendReportWithReveal } = require('../utils/reportStream');
 const { isUserOperator } = require('../utils/permissions');
 const { getDepositHistory, getPaymentHistory, getCardSummary } = require('./groupCommands');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
@@ -316,8 +316,8 @@ const handleReportCommand = async (bot, replyChatId, senderName, userId = null, 
     const showButtons = sameChat ? await getButtonsStatus(reportChatId) : false;
     const keyboard = showButtons ? await getInlineKeyboard(reportChatId) : null;
     
-    await sendLongMarkdownMessage(bot, replyChatId, response, {
-      parse_mode: 'Markdown',
+    await sendReportWithReveal(bot, replyChatId, response, {
+      parse_mode: 'HTML',
       reply_markup: keyboard
     });
     
@@ -344,7 +344,9 @@ const handleHelpCommand = async (bot, chatId) => {
 /help - 查看帮助
 /off - 结束会话
 /u - 查看当前USDT地址 或者 u来u来
-/report - 查看交易报告
+/report - 网页交易仪表盘链接（按上课分段）
+/report h - 历史报表（表格+Excel，按上课分段）
+结束 - 当前场次电报报告
 /ops - 操作员列表 或者 操作人
 
 -------------------------
@@ -465,18 +467,19 @@ const handleHelp2Command = async (bot, chatId) => {
 - \`/help\`: trợ giúp ngắn
 - \`/help2\`: trợ giúp chi tiết (lệnh này)
 - \`/off\`: gửi lời kết phiên
-- \`/report\` hoặc \`结束\`: báo cáo tổng hợp nhóm hiện tại
-- \`/report -100...\`: báo cáo nhóm khác (operator/admin nhóm đó); ví dụ \`/report -1001234567890\`
-- \`/report1\`: báo cáo chi tiết hơn (Operator)
+- \`/report\`: link website dashboard nhóm/chat (Operator); \`/report -100...\` dashboard nhóm khác
+- \`/report h\`: lịch sử rich/Excel theo từng phiên 上课; \`/report h -100...\` nhóm khác (Operator)
+- \`结束\`: báo cáo Telegram phiên hiện tại (sau 上课)
+- \`/report1\`: alias của \`/report\` (giữ tương thích)
 
 
 ━━━━━━━━━━━━━━━━━━
 *2) Quy đổi & biểu thức*
 - \`/t <VND>\`: đổi VND -> USDT
 - \`/v <USDT>\`: đổi USDT -> VND
-- \`/z0\`: Binance P2P USDT/VND cột mua (mức 100tr, bỏ qua thương nhân đầu, 10 giá)
-- \`/z1\`: OKX P2P USDT/VND cột mua (mức 100tr, bỏ qua thương nhân đầu, 10 giá)
-- \`/z2\`: Bybit P2P USDT/VND cột mua (mức 100tr, bỏ qua thương nhân đầu, 10 giá)
+- \`/z0\`: Binance P2P USDT/VND 买入价（1亿越南盾，跳过首位商家，10个报价）
+- \`/z1\`: OKX P2P USDT/VND 买入价（1亿越南盾，跳过首位商家，10个报价）
+- \`/z2\`: Bybit P2P USDT/VND 买入价（1亿越南盾，跳过首位商家，10个报价）
 - Nhập biểu thức toán trực tiếp: ví dụ \`12w+5\`, \`1亿+2亿\`, \`1y/2\`
 - Hỗ trợ ký hiệu số: \`k\`, \`m\`, \`w\`, \`万\`, \`亿\`, \`y\`, \`个亿\`
 

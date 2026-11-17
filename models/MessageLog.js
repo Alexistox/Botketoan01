@@ -64,6 +64,31 @@ const MessageLogSchema = new mongoose.Schema({
   documentFileId: {
     type: String,
     default: ''
+  },
+  stickerFileId: {
+    type: String,
+    default: ''
+  },
+  stickerUrl: {
+    type: String,
+    default: ''
+  },
+  animationFileId: {
+    type: String,
+    default: ''
+  },
+  animationUrl: {
+    type: String,
+    default: ''
+  },
+  /** Tin do bot gửi (outgoing) hoặc from.is_bot */
+  isBot: {
+    type: Boolean,
+    default: false
+  },
+  messageId: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 

@@ -5,6 +5,10 @@ const MessageLogsAuth = require('../models/MessageLogsAuth');
 const { getDownloadLink } = require('../utils/telegramUtils');
 const { fetchGroupDetails, findGroupByChatId } = require('../services/messagelogsGroupDetails');
 const { generateDashboardHTML } = require('./messagelogsDashboardHtml');
+const {
+  containsChinese,
+  translateZhToViBatch
+} = require('../utils/zhToVi');
 
 async function validateMessageLogsToken(token) {
   if (!token) return false;
@@ -153,14 +157,20 @@ router.get('/api/messagelogs', async (req, res) => {
         senderId: m.senderId || '',
         timestamp: m.timestamp,
         content: m.content || '',
+        isBot: !!m.isBot,
+        messageId: m.messageId || '',
         photoFileId: m.photoFileId || '',
         videoFileId: m.videoFileId || '',
         voiceFileId: m.voiceFileId || '',
         documentFileId: m.documentFileId || '',
+        stickerFileId: m.stickerFileId || '',
+        animationFileId: m.animationFileId || '',
         photoUrl: m.photoUrl || '',
         videoUrl: m.videoUrl || '',
         voiceUrl: m.voiceUrl || '',
-        documentUrl: m.documentUrl || ''
+        documentUrl: m.documentUrl || '',
+        stickerUrl: m.stickerUrl || '',
+        animationUrl: m.animationUrl || ''
       }))
     });
   } catch (error) {
@@ -197,6 +207,33 @@ router.get('/api/messagelogs/groups/:chatId/details', async (req, res) => {
   } catch (error) {
     console.error('Error in /api/messagelogs/groups/:chatId/details:', error);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * POST /api/messagelogs/translate — dịch Trung → Việt (khi UI Tiếng Việt)
+ * body: { texts: string[] }
+ */
+router.post('/api/messagelogs/translate', express.json({ limit: '200kb' }), async (req, res) => {
+  try {
+    const token = req.query.token || (req.body && req.body.token);
+    if (!(await validateMessageLogsToken(token))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const texts = req.body && Array.isArray(req.body.texts) ? req.body.texts : [];
+    if (texts.length > 40) {
+      return res.status(400).json({ error: 'Too many texts (max 40)' });
+    }
+    const cleaned = texts.map((t) => String(t == null ? '' : t).slice(0, 4500));
+    const need = cleaned.filter(containsChinese);
+    if (!need.length) {
+      return res.json({ translations: cleaned });
+    }
+    const translations = await translateZhToViBatch(cleaned);
+    res.json({ translations });
+  } catch (error) {
+    console.error('Error in /api/messagelogs/translate:', error);
+    res.status(500).json({ error: 'Translate failed' });
   }
 });
 

@@ -173,7 +173,7 @@ const handleRateCommand = async (bot, msg) => {
     
     // Format và gửi tin nhắn
     const response = formatTelegramMessage(responseData, userFormat);
-    await sendLongMarkdownMessage(bot, chatId, response, { parse_mode: 'Markdown' });
+    await sendLongMarkdownMessage(bot, chatId, response, { parse_mode: 'HTML' });
     
   } catch (error) {
     console.error('Error in handleRateCommand:', error);
@@ -269,7 +269,7 @@ const handleExchangeRateCommand = async (bot, msg) => {
     
     // Format và gửi tin nhắn
     const response = formatTelegramMessage(responseData, userFormat);
-    await sendLongMarkdownMessage(bot, chatId, response, { parse_mode: 'Markdown' });
+    await sendLongMarkdownMessage(bot, chatId, response, { parse_mode: 'HTML' });
     
   } catch (error) {
     console.error('Error in handleExchangeRateCommand:', error);
