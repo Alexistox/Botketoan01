@@ -357,9 +357,10 @@ const handleHelpCommand = async (bot, chatId) => {
 /z1 - OKX P2P USDT/VND 买入价（100tr，跳过首位）
 /z2 - Bybit P2P USDT/VND 买入价（100tr，跳过首位）
 /d [费率]/[汇率] - 临时设置费率和汇率 (例: /d 2/14600)
-/d2 [出款费率]/[出款汇率] - 设置出款费率和汇率 (例: /d2 3/14800)
+/d2 [出款费率]/[出款汇率] - 设置出款费率和汇率 (例: /d2 3/14800；也可 /d2 3 → 汇率=1)
 /d2 off - 关闭出款汇率费率显示
 或者 价格 费率/汇率
+或者 出款 费率/汇率 (例: 出款 3/14800 或 出款 3)
 设置费率 [数值] - 设置费率 (例: 设置费率2)
 设置汇率 [数值] - 设置汇率 (例: 设置汇率14600)
 
@@ -488,7 +489,7 @@ const handleHelp2Command = async (bot, chatId) => {
 - \`设置费率<giá trị>\` (vd: \`设置费率2\`)
 - \`设置汇率<giá trị>\` (vd: \`设置汇率14600\`)
 - \`/d <phí>/<tỷ giá>\` hoặc alias \`价格\`
-- \`/d2 <phí xuất>/<tỷ giá xuất>\`
+- \`/d2 <phí xuất>/<tỷ giá xuất>\` hoặc alias \`出款\` (thiếu y → y=1; vd \`出款 3\`)
 - \`/d2 off\`: tắt hiển thị phí/tỷ giá xuất
 - \`上课\` / \`Start\` / \`开始新账单\`: reset phiên làm việc
 

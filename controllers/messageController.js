@@ -372,6 +372,26 @@ const handleMessage = async (bot, msg, cache) => {
       }
       return;
     }
+
+    // Lệnh 出款 — alias /d2 (出款费率/汇率); thiếu y → mặc định 1
+    if (messageText === '出款' ||
+        messageText.startsWith('出款 ') ||
+        messageText.startsWith('出款/') ||
+        messageText.startsWith('出款:') ||
+        messageText.startsWith('出款：')) {
+      if (await isUserOperator(userId, chatId)) {
+        let rest = messageText.slice(2);
+        if (rest.startsWith(':') || rest.startsWith('：') || rest.startsWith('/')) {
+          rest = rest.slice(1);
+        }
+        rest = rest.trim();
+        const modifiedMsg = { ...msg, text: rest ? `/d2 ${rest}` : '/d2' };
+        await handleWithdrawRateCommand(bot, modifiedMsg);
+      } else {
+        await notifyNoOperator(bot, chatId, userId);
+      }
+      return;
+    }
     
     // Lệnh 撤销账单 (tương đương /skip)
     if (messageText.startsWith('撤回')) {
