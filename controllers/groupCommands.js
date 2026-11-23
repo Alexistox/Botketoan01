@@ -286,17 +286,20 @@ const handleDualRateCommand = async (bot, msg) => {
     const senderName = msg.from.first_name;
     const messageText = msg.text;
     
-    // Trích xuất tham số từ tin nhắn
+    // Trích xuất tham số: /d 2/14600 hoặc /d 2 (y mặc định = 1)
     const param = messageText.substring(3).trim();
-    const parts = param.split('/');
-    
-    if (parts.length !== 2) {
-      bot.sendMessage(chatId, "语法无效。例如: /d 2/14600");
+    if (!param) {
+      bot.sendMessage(chatId, "语法无效。例如: /d 2/14600 或 /d 2");
       return;
     }
-    
+    const parts = param.split('/');
+    if (parts.length > 2) {
+      bot.sendMessage(chatId, "语法无效。例如: /d 2/14600 或 /d 2");
+      return;
+    }
+
     const newRate = parseSpecialNumber(parts[0]);
-    const newExRate = parseSpecialNumber(parts[1]);
+    const newExRate = parts.length === 2 ? parseSpecialNumber(parts[1]) : 1;
     
     if (isNaN(newRate) || isNaN(newExRate)) {
       bot.sendMessage(chatId, "输入的数值无效，请检查后重试。");
