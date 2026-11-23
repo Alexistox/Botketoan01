@@ -1081,6 +1081,119 @@ const formatWithdrawRateMessage = (jsonData, numberFormat = 'formatted') => {
   return output;
 };
 
+/**
+ * Parse token sau `+` cho mode amount*x/y.
+ * - Không có `*`/`/` → rateMode=false, chỉ amount (đường cũ).
+ * - Có `*` và/hoặc `/` → rateMode=true; x/y là số literal hoặc chữ x/y / thiếu → placeholder.
+ * Không dùng evaluateSpecialExpression (tránh y=亿).
+ *
+ * @returns {{ ok: boolean, rateMode?: boolean, amount?: number, xLiteral?: number|null, yLiteral?: number|null, xIsPlaceholder?: boolean, yIsPlaceholder?: boolean }}
+ */
+const parsePlusAmountRateExpr = (token) => {
+  const raw = String(token || '').trim();
+  if (!raw) return { ok: false };
+
+  const starIdx = raw.indexOf('*');
+  const slashIdx = raw.indexOf('/');
+  const rateMode = starIdx >= 0 || slashIdx >= 0;
+
+  if (!rateMode) {
+    const amount = parseSpecialNumber(raw);
+    if (Number.isNaN(amount)) return { ok: false };
+    return { ok: true, rateMode: false, amount };
+  }
+
+  let amountStr;
+  let xStr = null;
+  let yStr = null;
+
+  if (starIdx >= 0 && slashIdx > starIdx) {
+    amountStr = raw.slice(0, starIdx);
+    xStr = raw.slice(starIdx + 1, slashIdx);
+    yStr = raw.slice(slashIdx + 1);
+  } else if (starIdx >= 0 && slashIdx < 0) {
+    amountStr = raw.slice(0, starIdx);
+    xStr = raw.slice(starIdx + 1);
+  } else if (slashIdx >= 0 && (starIdx < 0 || starIdx > slashIdx)) {
+    // +10000/y hoặc +10000/14600 (không *)
+    amountStr = raw.slice(0, slashIdx);
+    yStr = raw.slice(slashIdx + 1);
+  } else {
+    return { ok: false };
+  }
+
+  const amount = parseSpecialNumber(amountStr);
+  if (Number.isNaN(amount)) return { ok: false };
+
+  let xLiteral = null;
+  let yLiteral = null;
+  let xIsPlaceholder = true;
+  let yIsPlaceholder = true;
+
+  if (xStr != null) {
+    const xs = xStr.trim();
+    if (!xs) return { ok: false };
+    if (/^x$/i.test(xs)) {
+      xIsPlaceholder = true;
+    } else {
+      xLiteral = parseSpecialNumber(xs);
+      if (Number.isNaN(xLiteral)) return { ok: false };
+      xIsPlaceholder = false;
+    }
+  }
+
+  if (yStr != null) {
+    const ys = yStr.trim();
+    if (!ys) return { ok: false };
+    if (/^y$/i.test(ys)) {
+      yIsPlaceholder = true;
+    } else {
+      yLiteral = parseSpecialNumber(ys);
+      if (Number.isNaN(yLiteral)) return { ok: false };
+      yIsPlaceholder = false;
+    }
+  }
+
+  return {
+    ok: true,
+    rateMode: true,
+    amount,
+    xLiteral,
+    yLiteral,
+    xIsPlaceholder,
+    yIsPlaceholder
+  };
+};
+
+/**
+ * Resolve x (hệ số) / y (汇率) từ parsePlusAmountRateExpr + group `/d`.
+ * x mặc định = 1 - rate/100 (chưa rate → 1); y mặc định = exchangeRate (chưa / 0 → 1).
+ */
+const resolvePlusXyDefaults = (parsed, group) => {
+  const rate =
+    group && group.rate != null && group.rate !== '' && Number.isFinite(Number(group.rate))
+      ? Number(group.rate)
+      : null;
+  const ex =
+    group && group.exchangeRate != null && Number(group.exchangeRate) !== 0
+      ? Number(group.exchangeRate)
+      : null;
+
+  const defaultX = rate != null ? 1 - rate / 100 : 1;
+  const defaultY = ex != null ? ex : 1;
+
+  const x = parsed.xIsPlaceholder ? defaultX : Number(parsed.xLiteral);
+  const y = parsed.yIsPlaceholder ? defaultY : Number(parsed.yLiteral);
+
+  return {
+    x,
+    y,
+    ratePercent: rate != null ? rate : 0,
+    defaultX,
+    defaultY
+  };
+};
+
 module.exports = {
   formatSmart,
   formatNumberWithCommas,
@@ -1093,6 +1206,8 @@ module.exports = {
   normalizeNumberFormat,
   parseSpecialNumber,
   evaluateSpecialExpression,
+  parsePlusAmountRateExpr,
+  resolvePlusXyDefaults,
   isTrc20Address,
   formatTelegramMessage,
   formatWithdrawRateMessage,
