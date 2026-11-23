@@ -3,7 +3,7 @@ const BroadcastSavedMessage = require('../models/BroadcastSavedMessage');
 const BroadcastSchedule = require('../models/BroadcastSchedule');
 const { splitTelegramText } = require('../utils/telegramChunks');
 
-const SCHEDULE_TZ = 'Asia/Ho_Chi_Minh';
+const SCHEDULE_TZ = 'Asia/Phnom_Penh';
 
 function commandSource(msg) {
   return (msg.text || msg.caption || '').trim();
@@ -360,8 +360,8 @@ function parseHHmm(raw) {
   return `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
 }
 
-/** Ngày + giờ hiện tại theo Asia/Ho_Chi_Minh */
-function getSaigonNowParts(date = new Date()) {
+/** Ngày + giờ hiện tại theo Asia/Phnom_Penh (Campuchia) */
+function getScheduleNowParts(date = new Date()) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: SCHEDULE_TZ,
     year: 'numeric',
@@ -419,7 +419,7 @@ async function fireBroadcastSchedule(bot, schedule) {
     return { ok: 0, total: 0, errors: [resolved.message] };
   }
 
-  const today = getSaigonNowParts().dateStr;
+  const today = getScheduleNowParts().dateStr;
   await BroadcastSchedule.updateOne(
     { _id: schedule._id },
     { $set: { lastFiredDate: today } }
@@ -449,7 +449,7 @@ const handleBroadcastCs = async (bot, msg) => {
   if (cmd !== '/cs' || parts.length < 3) {
     await bot.sendMessage(
       msg.chat.id,
-      '用法：/cs <消息代码> <群组代码或ID> <HH:mm>\n或回复消息后：/cs <群组代码或ID> <HH:mm>\n时区：Asia/Ho_Chi_Minh'
+      '用法：/cs <消息代码> <群组代码或ID> <HH:mm>\n或回复消息后：/cs <群组代码或ID> <HH:mm>\n时区：Asia/Phnom_Penh（柬埔寨）'
     );
     return;
   }
@@ -598,7 +598,8 @@ module.exports = {
   handleBroadcastCslist,
   handleBroadcastDs,
   fireBroadcastSchedule,
-  getSaigonNowParts,
+  getScheduleNowParts,
+  getSaigonNowParts: getScheduleNowParts,
   parseHHmm,
   SCHEDULE_TZ
 };

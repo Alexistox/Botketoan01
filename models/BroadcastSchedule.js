@@ -33,7 +33,7 @@ const BroadcastScheduleSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  /** YYYY-MM-DD theo Asia/Ho_Chi_Minh — chống gửi trùng trong ngày */
+  /** YYYY-MM-DD theo Asia/Phnom_Penh (Campuchia) — chống gửi trùng trong ngày */
   lastFiredDate: {
     type: String,
     default: null

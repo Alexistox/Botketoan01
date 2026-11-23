@@ -431,7 +431,7 @@ const handleHelpCommand = async (bot, chatId) => {
 /dm [消息代码] - 删除已保存消息
 /send [消息代码] [群组代码或ID] - 将已保存消息发送到目标群组
 回复一条消息后 /send [群组代码或ID] - 直接发送该回复消息
-/cs [消息代码] [群组代码或ID] [HH:mm] - 每日定时发送（时区 Asia/Ho_Chi_Minh）
+/cs [消息代码] [群组代码或ID] [HH:mm] - 每日定时发送（时区 Asia/Phnom_Penh 柬埔寨）
 回复消息后 /cs [群组代码或ID] [HH:mm] - 定时发送该回复消息
 /cslist - 查看定时发送列表
 /ds [序号或短码] - 删除定时发送
@@ -563,7 +563,7 @@ const handleHelp2Command = async (bot, chatId) => {
 - \`/dm <消息代码>\`: 删除已保存消息
 - \`/send <消息代码> <群组代码|ID>\`: 将已保存消息发送到目标群组
 - 回复一条消息后使用 \`/send <群组代码|ID>\`: 直接发送该回复消息
-- \`/cs <消息代码> <群组代码|ID> <HH:mm>\`: gửi theo lịch mỗi ngày (TZ Asia/Ho_Chi_Minh)
+- \`/cs <消息代码> <群组代码|ID> <HH:mm>\`: gửi theo lịch mỗi ngày (TZ Asia/Phnom_Penh — Campuchia)
 - Reply + \`/cs <群组代码|ID> <HH:mm>\`: lịch từ tin đang reply
 - \`/cslist\` / \`/ds <số|mã ngắn>\`: liệt kê / xóa lịch
 - Alias \`定时 …\` = \`/cs …\`

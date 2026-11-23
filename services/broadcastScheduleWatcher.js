@@ -1,7 +1,8 @@
 const BroadcastSchedule = require('../models/BroadcastSchedule');
 const {
   fireBroadcastSchedule,
-  getSaigonNowParts
+  getScheduleNowParts,
+  SCHEDULE_TZ
 } = require('../controllers/broadcastCommands');
 
 let isRunning = false;
@@ -10,7 +11,7 @@ async function watchBroadcastSchedules(bot) {
   if (!bot || isRunning) return;
   isRunning = true;
   try {
-    const { dateStr, timeHHmm } = getSaigonNowParts();
+    const { dateStr, timeHHmm } = getScheduleNowParts();
     const due = await BroadcastSchedule.find({
       enabled: { $ne: false },
       timeHHmm,
@@ -52,7 +53,7 @@ function startBroadcastScheduleWatcher(bot) {
   const intervalMs = parseInt(process.env.BROADCAST_SCHEDULE_POLL_MS, 10) || 30000;
   setTimeout(() => watchBroadcastSchedules(bot), 8000);
   setInterval(() => watchBroadcastSchedules(bot), intervalMs);
-  console.log(`Broadcast schedule watcher started (interval ${intervalMs}ms, TZ Asia/Ho_Chi_Minh)`);
+  console.log(`Broadcast schedule watcher started (interval ${intervalMs}ms, TZ ${SCHEDULE_TZ})`);
 }
 
 module.exports = {
