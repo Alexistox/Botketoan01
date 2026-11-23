@@ -360,7 +360,71 @@ function parseHHmm(raw) {
   return `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
 }
 
-/** Ngày + giờ hiện tại theo Asia/Phnom_Penh (Campuchia) */
+/**
+ * Parse khung ngày trong tuần: 1=T2 … 7=CN.
+ * Hỗ trợ: 3 | 1-5 | 2,5 | 2.5 | 2:5 | wd/work | we/weekend
+ * @returns {number[]|null} null = không hợp lệ; [] không dùng (caller dùng empty = mọi ngày)
+ */
+function parseDaysOfWeek(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  if (!s) return null;
+  if (s === 'wd' || s === 'work') return [1, 2, 3, 4, 5];
+  if (s === 'we' || s === 'weekend') return [6, 7];
+
+  // Không nhầm HH:mm thành ngày
+  if (parseHHmm(s)) return null;
+
+  const normalized = s.replace(/[.:]/g, ',');
+  const tokens = normalized.split(',').map((t) => t.trim()).filter(Boolean);
+  if (!tokens.length) return null;
+
+  const days = new Set();
+  for (const tok of tokens) {
+    const range = tok.match(/^([1-7])-([1-7])$/);
+    if (range) {
+      let a = Number(range[1]);
+      let b = Number(range[2]);
+      if (a > b) {
+        const t = a;
+        a = b;
+        b = t;
+      }
+      for (let d = a; d <= b; d += 1) days.add(d);
+      continue;
+    }
+    if (/^[1-7]$/.test(tok)) {
+      days.add(Number(tok));
+      continue;
+    }
+    return null;
+  }
+  if (!days.size) return null;
+  return [...days].sort((a, b) => a - b);
+}
+
+/** Hiển thị: [] → 每日; [1,2,3,4,5] → 1-5; [2,5] → 2,5 */
+function formatDaysOfWeekLabel(days) {
+  const list = Array.isArray(days) ? [...new Set(days.map(Number))].filter((d) => d >= 1 && d <= 7).sort((a, b) => a - b) : [];
+  if (!list.length) return '每日';
+  if (list.length === 7) return '每日';
+
+  const ranges = [];
+  let start = list[0];
+  let prev = list[0];
+  for (let i = 1; i < list.length; i += 1) {
+    if (list[i] === prev + 1) {
+      prev = list[i];
+      continue;
+    }
+    ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+    start = list[i];
+    prev = list[i];
+  }
+  ranges.push(start === prev ? `${start}` : `${start}-${prev}`);
+  return ranges.join(',');
+}
+
+/** Ngày + giờ + weekday hiện tại theo Asia/Phnom_Penh (Campuchia). weekday: 1=Mon…7=Sun */
 function getScheduleNowParts(date = new Date()) {
   const fmt = new Intl.DateTimeFormat('en-CA', {
     timeZone: SCHEDULE_TZ,
@@ -377,9 +441,18 @@ function getScheduleNowParts(date = new Date()) {
   }
   let hour = parts.hour;
   if (hour === '24') hour = '00';
+
+  const wdShort = new Intl.DateTimeFormat('en-US', {
+    timeZone: SCHEDULE_TZ,
+    weekday: 'short'
+  }).format(date);
+  const weekdayMap = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+  const weekday = weekdayMap[wdShort] || null;
+
   return {
     dateStr: `${parts.year}-${parts.month}-${parts.day}`,
-    timeHHmm: `${hour}:${parts.minute}`
+    timeHHmm: `${hour}:${parts.minute}`,
+    weekday
   };
 }
 
@@ -439,25 +512,46 @@ async function fireBroadcastSchedule(bot, schedule) {
 }
 
 /**
- * /cs <消息代码> <群组代码|ID> <HH:mm>
- * hoặc reply + /cs <群组代码|ID> <HH:mm>
+ * /cs <消息代码> <群组代码|ID> <HH:mm> [days]
+ * hoặc reply + /cs <群组代码|ID> <HH:mm> [days]
+ * days: 1-5 | 3 | 2,5 | 2.5 | 2:5 | wd | we  (1=T2…7=CN)
  */
 const handleBroadcastCs = async (bot, msg) => {
   const source = commandSource(msg);
   const parts = source.split(/\s+/).filter(Boolean);
   const cmd = (parts[0] || '').split('@')[0];
+  const usage =
+    '用法：/cs <消息代码> <群组代码或ID> <HH:mm> [days]\n' +
+    '或回复消息后：/cs <群组代码或ID> <HH:mm> [days]\n' +
+    'days 可选：1-5 / 3 / 2,5 / wd / we（1=周一…7=周日；, . : 均可）\n' +
+    '时区：Asia/Phnom_Penh（柬埔寨）';
+
   if (cmd !== '/cs' || parts.length < 3) {
-    await bot.sendMessage(
-      msg.chat.id,
-      '用法：/cs <消息代码> <群组代码或ID> <HH:mm>\n或回复消息后：/cs <群组代码或ID> <HH:mm>\n时区：Asia/Phnom_Penh（柬埔寨）'
-    );
+    await bot.sendMessage(msg.chat.id, usage);
     return;
   }
 
-  const timeRaw = parts[parts.length - 1];
-  const timeHHmm = parseHHmm(timeRaw);
-  if (!timeHHmm) {
-    await bot.sendMessage(msg.chat.id, '时间格式无效。请使用 HH:mm（例如 09:00）。');
+  const rest = parts.slice(1);
+  let daysOfWeek = [];
+  let timeHHmm = null;
+  let middle;
+
+  if (
+    rest.length >= 2 &&
+    parseDaysOfWeek(rest[rest.length - 1]) &&
+    parseHHmm(rest[rest.length - 2])
+  ) {
+    daysOfWeek = parseDaysOfWeek(rest[rest.length - 1]);
+    timeHHmm = parseHHmm(rest[rest.length - 2]);
+    middle = rest.slice(0, -2);
+  } else if (parseHHmm(rest[rest.length - 1])) {
+    timeHHmm = parseHHmm(rest[rest.length - 1]);
+    middle = rest.slice(0, -1);
+  } else {
+    await bot.sendMessage(
+      msg.chat.id,
+      '时间或日期格式无效。时间用 HH:mm；日期用 1-5 / 3 / 2,5 / wd / we。'
+    );
     return;
   }
 
@@ -466,28 +560,28 @@ const handleBroadcastCs = async (bot, msg) => {
   let messageId = null;
   let target;
 
-  if (parts.length === 3) {
-    // /cs target HH:mm  (reply)  HOẶC  /cs code target HH:mm cần 4 tokens
-    // parts.length === 3 means: cmd + 2 args → reply form
+  if (middle.length === 1) {
     if (!msg.reply_to_message) {
       await bot.sendMessage(
         msg.chat.id,
-        '请先回复要定时发送的消息，再发送 /cs <群组代码或ID> <HH:mm>；\n或不回复，使用 /cs <消息代码> <群组代码或ID> <HH:mm>。'
+        '请先回复要定时发送的消息，再发送 /cs <群组代码或ID> <HH:mm> [days]；\n或不回复，使用 /cs <消息代码> <群组代码或ID> <HH:mm> [days]。'
       );
       return;
     }
-    target = parts[1];
+    target = middle[0];
     fromChatId = msg.reply_to_message.chat.id.toString();
     messageId = msg.reply_to_message.message_id;
-  } else {
-    // /cs code target HH:mm  (parts.length >= 4)
-    msgCode = parts[1].toLowerCase();
-    target = parts.slice(2, -1).join(' ').trim();
+  } else if (middle.length >= 2) {
+    msgCode = middle[0].toLowerCase();
+    target = middle.slice(1).join(' ').trim();
     const saved = await BroadcastSavedMessage.findOne({ code: msgCode });
     if (!saved) {
       await bot.sendMessage(msg.chat.id, `未找到消息 "${msgCode}"。请先用 /cm 保存。`);
       return;
     }
+  } else {
+    await bot.sendMessage(msg.chat.id, usage);
+    return;
   }
 
   if (!target) {
@@ -508,16 +602,18 @@ const handleBroadcastCs = async (bot, msg) => {
     messageId,
     target: target.trim(),
     timeHHmm,
+    daysOfWeek,
     enabled: true,
     lastFiredDate: null,
     createdBy
   });
 
   const srcLabel = describeScheduleSource(row);
+  const daysLabel = formatDaysOfWeekLabel(daysOfWeek);
   await bot.sendMessage(
     msg.chat.id,
-    `已设置每日定时发送（${SCHEDULE_TZ}）：\n` +
-      `#${row._id.toString().slice(-6)} ${timeHHmm} → ${target} ← ${srcLabel}\n` +
+    `已设置定时发送（${SCHEDULE_TZ}）：\n` +
+      `#${row._id.toString().slice(-6)} ${timeHHmm} ${daysLabel} → ${target} ← ${srcLabel}\n` +
       `目标群组数：${resolved.targets.length}`
   );
 };
@@ -528,7 +624,10 @@ const handleBroadcastCs = async (bot, msg) => {
 const handleBroadcastCslist = async (bot, msg) => {
   const list = await BroadcastSchedule.find().sort({ timeHHmm: 1, createdAt: 1 }).lean();
   if (!list.length) {
-    await bot.sendMessage(msg.chat.id, '暂无定时发送。用法：/cs <消息代码> <群组代码或ID> <HH:mm>');
+    await bot.sendMessage(
+      msg.chat.id,
+      '暂无定时发送。用法：/cs <消息代码> <群组代码或ID> <HH:mm> [days]\ndays 例：1-5 / 3 / 2,5 / wd / we'
+    );
     return;
   }
   const lines = list.map((row, i) => {
@@ -536,7 +635,8 @@ const handleBroadcastCslist = async (bot, msg) => {
     const short = String(row._id).slice(-6);
     const on = row.enabled === false ? ' [停用]' : '';
     const last = row.lastFiredDate ? ` last=${row.lastFiredDate}` : '';
-    return `${n}. #${short} ${row.timeHHmm} → ${row.target} ← ${describeScheduleSource(row)}${on}${last}`;
+    const daysLabel = formatDaysOfWeekLabel(row.daysOfWeek);
+    return `${n}. #${short} ${row.timeHHmm} ${daysLabel} → ${row.target} ← ${describeScheduleSource(row)}${on}${last}`;
   });
   await sendTelegramChunks(
     bot,
@@ -601,5 +701,7 @@ module.exports = {
   getScheduleNowParts,
   getSaigonNowParts: getScheduleNowParts,
   parseHHmm,
+  parseDaysOfWeek,
+  formatDaysOfWeekLabel,
   SCHEDULE_TZ
 };

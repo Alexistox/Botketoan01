@@ -11,7 +11,7 @@ async function watchBroadcastSchedules(bot) {
   if (!bot || isRunning) return;
   isRunning = true;
   try {
-    const { dateStr, timeHHmm } = getScheduleNowParts();
+    const { dateStr, timeHHmm, weekday } = getScheduleNowParts();
     const due = await BroadcastSchedule.find({
       enabled: { $ne: false },
       timeHHmm,
@@ -22,6 +22,10 @@ async function watchBroadcastSchedules(bot) {
     }).lean();
 
     for (const row of due) {
+      const days = Array.isArray(row.daysOfWeek) ? row.daysOfWeek : [];
+      if (days.length && weekday != null && !days.includes(weekday)) {
+        continue;
+      }
       try {
         const result = await fireBroadcastSchedule(bot, row);
         if (result.errors.length) {

@@ -29,6 +29,11 @@ const BroadcastScheduleSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  /** 1=Mon … 7=Sun (ISO). [] / missing = mọi ngày trong tuần */
+  daysOfWeek: {
+    type: [Number],
+    default: []
+  },
   enabled: {
     type: Boolean,
     default: true
