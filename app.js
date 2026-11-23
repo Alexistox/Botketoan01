@@ -13,6 +13,7 @@ const { handleMessage } = require('./controllers/messageController');
 const { handleInlineButtonCallback } = require('./controllers/userCommands');
 const { connectDB } = require('./config/db');
 const { startServerFeeWatcher } = require('./services/serverFeeWatcher');
+const { startBroadcastScheduleWatcher } = require('./services/broadcastScheduleWatcher');
 
 // Khởi tạo cache
 const cache = new NodeCache({ stdTTL: 21600 }); // Cache in 6 hours
@@ -86,6 +87,8 @@ app.listen(PORT, () => {
 
 // Theo dõi thanh toán phí máy chủ (/phithang, xufei)
 startServerFeeWatcher(bot);
+// Lịch gửi cố định (/cs) — persist Mongo, restart không mất
+startBroadcastScheduleWatcher(bot);
 
 // Xử lý lỗi không bắt được
 process.on('unhandledRejection', (error) => {
