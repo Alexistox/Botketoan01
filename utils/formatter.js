@@ -96,6 +96,25 @@ const isNeutralRateFactor = (rateFactorStr) => {
   return Number.isFinite(n) && Math.abs(n - 1) < 1e-9;
 };
 
+/** true khi 汇率 y = 1 (không cần hiện /1) */
+const isNeutralExchangeRate = (yValue) => {
+  const n = Number(yValue);
+  return Number.isFinite(n) && Math.abs(n - 1) < 1e-9;
+};
+
+/**
+ * Hậu tố *x/y sau số tiền trong dòng giao dịch.
+ * Bỏ *1 và/hoặc /1 khi trung tính: *0.92/1 → *0.92; *1/14600 → /14600; *1/1 → "".
+ */
+const formatDepositRateSuffix = (rateFactor, yValue) => {
+  const xNeutral = isNeutralRateFactor(rateFactor);
+  const yNeutral = isNeutralExchangeRate(yValue);
+  if (xNeutral && yNeutral) return '';
+  if (xNeutral) return `/${yValue}`;
+  if (yNeutral) return `\\*${rateFactor}`;
+  return `\\*${rateFactor}/${yValue}`;
+};
+
 /**
  * Chuyển giá trị báo cáo (số thô hoặc chuỗi đã format có dấu phẩy nghìn) sang số.
  * parseFloat("5,186,000") chỉ được 5 — gây sai tổng 总入款/总出款.
@@ -1200,6 +1219,8 @@ module.exports = {
   formatRateValue,
   formatRateFactor,
   isNeutralRateFactor,
+  isNeutralExchangeRate,
+  formatDepositRateSuffix,
   isMathExpression,
   isSingleNumber,
   isValidNumber,

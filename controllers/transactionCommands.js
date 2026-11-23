@@ -2,7 +2,7 @@ const Group = require('../models/Group');
 const Transaction = require('../models/Transaction');
 const Card = require('../models/Card');
 const Config = require('../models/Config');
-const { formatSmart, formatRateValue, formatRateFactor, isNeutralRateFactor, formatTelegramMessage, formatWithdrawRateMessage, formatSenderForReportMarkdown, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, parsePlusAmountRateExpr, resolvePlusXyDefaults, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
+const { formatSmart, formatRateValue, formatRateFactor, formatDepositRateSuffix, formatTelegramMessage, formatWithdrawRateMessage, formatSenderForReportMarkdown, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, parsePlusAmountRateExpr, resolvePlusXyDefaults, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
 const { getDepositHistory, getPaymentHistory, getCardSummary } = require('./groupCommands');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
 const { sendReportWithReveal } = require('../utils/reportStream');
@@ -183,13 +183,13 @@ const handlePlusCommand = async (bot, msg) => {
     // Lấy format của người dùng cho hiển thị details
     const userFormat = await getGroupNumberFormat(chatId);
     
-    // Tạo chi tiết giao dịch
+    // Tạo chi tiết giao dịch (*1 và /1 không hiện)
     let details;
-    const rateDisplay = isNeutralRateFactor(rateFactor) ? '/' : `\\*${rateFactor}/`;
+    const rateSuffix = formatDepositRateSuffix(rateFactor, yValue);
     if (cardCode) {
-      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} (${cardCode}) ${senderMd}`;
+      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateSuffix} = ${formatSmart(newUSDT, userFormat)} (${cardCode}) ${senderMd}`;
     } else {
-      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(newUSDT, userFormat)} ${senderMd}`;
+      details = `\`${formatTimeString(new Date())}\` *${formatSmart(amountVND, userFormat)}*${rateSuffix} = ${formatSmart(newUSDT, userFormat)} ${senderMd}`;
     }
     
     // Lưu giao dịch mới
@@ -414,11 +414,11 @@ const handleMinusCommand = async (bot, msg) => {
     // Tạo chi tiết giao dịch
     let details;
     const operator = useWithdrawRate ? '+' : '-';
-    const rateDisplay = isNeutralRateFactor(rateFactor) ? '/' : `\\*${rateFactor}/`;
+    const rateSuffix = formatDepositRateSuffix(rateFactor, yValue);
     if (cardCode) {
-      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} (${cardCode}) ${senderMd}`;
+      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateSuffix} = ${formatSmart(minusUSDT, userFormat)} (${cardCode}) ${senderMd}`;
     } else {
-      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateDisplay}${yValue} = ${formatSmart(minusUSDT, userFormat)} ${senderMd}`;
+      details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateSuffix} = ${formatSmart(minusUSDT, userFormat)} ${senderMd}`;
     }
     // Lưu giao dịch mới
     const transaction = new Transaction({
