@@ -595,12 +595,23 @@ const handleBroadcastCs = async (bot, msg) => {
     return;
   }
 
+  const targetTrim = target.trim();
+  // Cùng nguồn tin (msgCode hoặc reply) + cùng target → thay lịch cũ bằng lệnh mới
+  const sourceFilter = msgCode
+    ? { msgCode }
+    : { fromChatId: String(fromChatId), messageId: Number(messageId) };
+  const removed = await BroadcastSchedule.deleteMany({
+    ...sourceFilter,
+    target: targetTrim
+  });
+  const replaced = removed.deletedCount || 0;
+
   const createdBy = msg.from ? String(msg.from.id) : '';
   const row = await BroadcastSchedule.create({
     msgCode,
     fromChatId,
     messageId,
-    target: target.trim(),
+    target: targetTrim,
     timeHHmm,
     daysOfWeek,
     enabled: true,
@@ -610,11 +621,14 @@ const handleBroadcastCs = async (bot, msg) => {
 
   const srcLabel = describeScheduleSource(row);
   const daysLabel = formatDaysOfWeekLabel(daysOfWeek);
+  const replaceNote = replaced
+    ? `\n已替换旧日程 ${replaced} 条（同一消息/回复 + 同一目标）`
+    : '';
   await bot.sendMessage(
     msg.chat.id,
     `已设置定时发送（${SCHEDULE_TZ}）：\n` +
-      `#${row._id.toString().slice(-6)} ${timeHHmm} ${daysLabel} → ${target} ← ${srcLabel}\n` +
-      `目标群组数：${resolved.targets.length}`
+      `#${row._id.toString().slice(-6)} ${timeHHmm} ${daysLabel} → ${targetTrim} ← ${srcLabel}\n` +
+      `目标群组数：${resolved.targets.length}${replaceNote}`
   );
 };
 
