@@ -1101,15 +1101,18 @@ const formatWithdrawRateMessage = (jsonData, numberFormat = 'formatted') => {
 };
 
 /**
- * Parse token sau `+` cho mode amount*x/y.
+ * Parse token sau `+` cho mode amount*费率/汇率.
  * - Không có `*`/`/` → rateMode=false, chỉ amount (đường cũ).
- * - Có `*` và/hoặc `/` → rateMode=true; x/y là số literal hoặc chữ x/y / thiếu → placeholder.
+ * - Có `*` và/hoặc `/` → rateMode=true.
+ * - Sau `*`: chữ `x` / thiếu → lấy 费率 `/d`; số literal (vd 12 hoặc 12%) = 费率 %, hệ số = 1-rate/100.
+ * - Sau `/`: chữ `y` / thiếu → lấy 汇率 `/d`; số = 汇率.
  * Không dùng evaluateSpecialExpression (tránh y=亿).
  *
  * @returns {{ ok: boolean, rateMode?: boolean, amount?: number, xLiteral?: number|null, yLiteral?: number|null, xIsPlaceholder?: boolean, yIsPlaceholder?: boolean }}
  */
 const parsePlusAmountRateExpr = (token) => {
-  const raw = String(token || '').trim();
+  // Cho phép +14000 *12 /14600 (có khoảng trắng quanh * /)
+  const raw = String(token || '').trim().replace(/\s*([*/])\s*/g, '$1');
   if (!raw) return { ok: false };
 
   const starIdx = raw.indexOf('*');
@@ -1155,7 +1158,9 @@ const parsePlusAmountRateExpr = (token) => {
     if (/^x$/i.test(xs)) {
       xIsPlaceholder = true;
     } else {
-      xLiteral = parseSpecialNumber(xs);
+      // *12 hoặc *12% → 费率 12
+      const rateTok = xs.replace(/%$/u, '');
+      xLiteral = parseSpecialNumber(rateTok);
       if (Number.isNaN(xLiteral)) return { ok: false };
       xIsPlaceholder = false;
     }
@@ -1185,11 +1190,12 @@ const parsePlusAmountRateExpr = (token) => {
 };
 
 /**
- * Resolve x (hệ số) / y (汇率) từ parsePlusAmountRateExpr + group `/d`.
- * x mặc định = 1 - rate/100 (chưa rate → 1); y mặc định = exchangeRate (chưa / 0 → 1).
+ * Resolve hệ số / 汇率 từ parsePlusAmountRateExpr + group `/d`.
+ * Literal sau * = 费率 % → hệ số x = 1 - rate/100 (vd *12 → 0.88).
+ * y mặc định = exchangeRate (chưa / 0 → 1).
  */
 const resolvePlusXyDefaults = (parsed, group) => {
-  const rate =
+  const groupRate =
     group && group.rate != null && group.rate !== '' && Number.isFinite(Number(group.rate))
       ? Number(group.rate)
       : null;
@@ -1198,18 +1204,21 @@ const resolvePlusXyDefaults = (parsed, group) => {
       ? Number(group.exchangeRate)
       : null;
 
-  const defaultX = rate != null ? 1 - rate / 100 : 1;
-  const defaultY = ex != null ? ex : 1;
+  const ratePercent = parsed.xIsPlaceholder
+    ? (groupRate != null ? groupRate : 0)
+    : Number(parsed.xLiteral);
 
-  const x = parsed.xIsPlaceholder ? defaultX : Number(parsed.xLiteral);
-  const y = parsed.yIsPlaceholder ? defaultY : Number(parsed.yLiteral);
+  const x = 1 - ratePercent / 100;
+  const y = parsed.yIsPlaceholder
+    ? (ex != null ? ex : 1)
+    : Number(parsed.yLiteral);
 
   return {
     x,
     y,
-    ratePercent: rate != null ? rate : 0,
-    defaultX,
-    defaultY
+    ratePercent,
+    defaultX: groupRate != null ? 1 - groupRate / 100 : 1,
+    defaultY: ex != null ? ex : 1
   };
 };
 

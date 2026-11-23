@@ -50,16 +50,17 @@ const handlePlusCommand = async (bot, msg) => {
       return;
     }
     
-    // Xử lý các tham số
-    const inputParts = parts[1].trim().split(' ');
+    // Xử lý các tham số (+14000 *12 /y CARD … — gộp khoảng trắng quanh */ trước khi tách)
+    const normalizedPlus = parts[1].trim().replace(/\s*([*/])\s*/g, '$1');
+    const inputParts = normalizedPlus.split(/\s+/);
     const expr = inputParts[0];
     const cardCode = inputParts.length > 1 ? inputParts[1].toUpperCase() : '';
     const cardLimit = inputParts.length > 2 ? parseSpecialNumber(inputParts[2]) : 0;
 
-    // amount*x/y (mode mới) hoặc amount thuần — không evaluate biểu thức thành số tiền
+    // amount*费率/汇率 (mode mới) hoặc amount thuần — *12 = 费率 12%
     const parsedPlus = parsePlusAmountRateExpr(expr);
     if (!parsedPlus.ok) {
-      bot.sendMessage(chatId, "指令无效。格式为：+数字 或 +数字*x/y 或 +数字 [卡号] [额度]");
+      bot.sendMessage(chatId, "指令无效。格式为：+数字 或 +数字*费率/汇率 或 +数字 [卡号] [额度]");
       return;
     }
     const amountVND = parsedPlus.amount;
@@ -139,7 +140,7 @@ const handlePlusCommand = async (bot, msg) => {
     }
    
     
-    // Tính USDT: mode *x/y → amount*x/y; +số thuần → (amount/y)*(1-rate/100)
+    // Tính USDT: mode *费率/汇率 → amount*(1-rate%/100)/y; +số thuần → (amount/y)*(1-rate/100)
     let xValue;
     let yValue;
     let rateFactor;
@@ -148,7 +149,7 @@ const handlePlusCommand = async (bot, msg) => {
 
     if (parsedPlus.rateMode) {
       const resolved = resolvePlusXyDefaults(parsedPlus, group);
-      xValue = resolved.x;
+      xValue = resolved.x; // hệ số 1 - rate%/100
       yValue = resolved.y;
       if (!Number.isFinite(xValue) || !Number.isFinite(yValue) || yValue === 0) {
         bot.sendMessage(chatId, "输入的数值无效，请检查后重试。");
@@ -156,7 +157,7 @@ const handlePlusCommand = async (bot, msg) => {
       }
       newUSDT = (amountVND * xValue) / yValue;
       rateFactor = formatRateFactor(xValue);
-      storedRate = parsedPlus.xIsPlaceholder ? resolved.ratePercent : xValue;
+      storedRate = resolved.ratePercent;
     } else {
       xValue = group.rate;
       yValue = group.exchangeRate;
