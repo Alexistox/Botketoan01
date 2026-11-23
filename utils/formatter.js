@@ -1223,6 +1223,29 @@ const resolvePlusXyDefaults = (parsed, group) => {
 };
 
 /**
+ * Reply pic/bank: "1", "3*12", "1*x/y"
+ * digit 1(+) 2(%) 3(-); rateSuffix gắn sau số tiền khi +/−.
+ */
+const parsePicReplyAction = (text) => {
+  const raw = String(text || '').trim().replace(/\s*([*/])\s*/g, '$1');
+  const m = raw.match(/^([123])(.*)$/);
+  if (!m) return { ok: false };
+  const digit = m[1];
+  const suffix = (m[2] || '').trim();
+  if (!suffix) return { ok: true, digit, rateSuffix: '' };
+  if (!suffix.startsWith('*') && !suffix.startsWith('/')) return { ok: false };
+  const probe = parsePlusAmountRateExpr(`1${suffix}`);
+  if (!probe.ok || !probe.rateMode) return { ok: false };
+  return { ok: true, digit, rateSuffix: suffix };
+};
+
+const buildPicCommandText = (digit, amount, rateSuffix = '') => {
+  const cmd = digit === '1' ? '+' : digit === '2' ? '%' : '-';
+  if (digit === '2' || !rateSuffix) return `${cmd}${amount}`;
+  return `${cmd}${amount}${rateSuffix}`;
+};
+
+/**
  * Resolve hệ số / 汇率 cho lệnh `-` (出款) từ `/d2`.
  * Literal sau * = 出款费率 % → hệ số x = 1 + rate/100 (vd *12 → 1.12).
  * y mặc định = withdrawExchangeRate (chưa → 1).
@@ -1275,6 +1298,8 @@ module.exports = {
   parsePlusAmountRateExpr,
   resolvePlusXyDefaults,
   resolveMinusXyDefaults,
+  parsePicReplyAction,
+  buildPicCommandText,
   isTrc20Address,
   formatTelegramMessage,
   formatWithdrawRateMessage,

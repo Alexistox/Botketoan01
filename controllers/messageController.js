@@ -258,18 +258,23 @@ const handleMessage = async (bot, msg, cache) => {
       return;
     }
     
-    // Xử lý pic mode replies: 1, 2, 3
-    if (msg.reply_to_message && (msg.reply_to_message.photo || msg.reply_to_message.text) && 
-        msg.text && (msg.text === '1' || msg.text === '2' || msg.text === '3')) {
-      // Kiểm tra xem pic mode có được bật không
-      if (await isPicModeEnabled(chatId)) {
-        // Kiểm tra quyền Operator
-        if (await isUserOperator(userId, chatId)) {
-          await handlePicModeReply(bot, msg, msg.text);
-        } else {
-          await notifyNoOperator(bot, chatId, userId);
+    // Pic mode replies: 1, 3*12, 1*x/y …
+    {
+      const { parsePicReplyAction } = require('../utils/formatter');
+      const picReply = msg.text ? parsePicReplyAction(msg.text) : { ok: false };
+      if (
+        msg.reply_to_message &&
+        (msg.reply_to_message.photo || msg.reply_to_message.text) &&
+        picReply.ok
+      ) {
+        if (await isPicModeEnabled(chatId)) {
+          if (await isUserOperator(userId, chatId)) {
+            await handlePicModeReply(bot, msg, msg.text);
+          } else {
+            await notifyNoOperator(bot, chatId, userId);
+          }
+          return;
         }
-        return;
       }
     }
     

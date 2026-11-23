@@ -522,7 +522,7 @@ const handleHelp2Command = async (bot, chatId) => {
 *6) QR / ảnh / OCR*
 - \`/qr on\` | \`/qr off\`: bật/tắt QR mode
 - \`/c\`: trích xuất thông tin ngân hàng từ ảnh
-- \`/pic on\` | \`/pic off\`: bật/tắt chế độ xử lý reply ảnh (1/2/3)
+- \`/pic on\` | \`/pic off\`: reply \`1\`/\`2\`/\`3\` hoặc \`1*12\`/\`3*x/y\` (phí % theo giao dịch)
 
 ━━━━━━━━━━━━━━━━━━
 *7) 地址 USDT*
