@@ -2,7 +2,7 @@ const Group = require('../models/Group');
 const Transaction = require('../models/Transaction');
 const Card = require('../models/Card');
 const Config = require('../models/Config');
-const { formatSmart, formatRateValue, formatRateFactor, formatDepositRateSuffix, formatTelegramMessage, formatWithdrawRateMessage, formatSenderForReportMarkdown, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, parsePlusAmountRateExpr, resolvePlusXyDefaults, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
+const { formatSmart, formatRateValue, formatRateFactor, formatDepositRateSuffix, formatTelegramMessage, formatWithdrawRateMessage, formatSenderForReportMarkdown, isSingleNumber, isValidNumber, parseSpecialNumber, evaluateSpecialExpression, parsePlusAmountRateExpr, resolvePlusXyDefaults, resolveMinusXyDefaults, formatDateUS, formatTimeString, getUserNumberFormat, getGroupNumberFormat } = require('../utils/formatter');
 const { getDepositHistory, getPaymentHistory, getCardSummary } = require('./groupCommands');
 const { getButtonsStatus, getInlineKeyboard } = require('./userCommands');
 const { sendReportWithReveal } = require('../utils/reportStream');
@@ -323,31 +323,23 @@ const handleMinusCommand = async (bot, msg) => {
     // Phân tích tin nhắn
     const parts = messageText.split('-');
     if (parts.length !== 2) {
-      bot.sendMessage(chatId, "指令无效。格式为：-数字 或 -数字 [卡号]");
+      bot.sendMessage(chatId, "指令无效。格式为：-数字 或 -数字*费率/汇率 或 -数字 [卡号]");
       return;
     }
     
-    // Xử lý các tham số
-    const inputParts = parts[1].trim().split(' ');
+    // Xử lý các tham số (-14000 *12 /y — gộp khoảng trắng quanh */)
+    const normalizedMinus = parts[1].trim().replace(/\s*([*/])\s*/g, '$1');
+    const inputParts = normalizedMinus.split(/\s+/);
     const expr = inputParts[0];
     const cardCode = inputParts.length > 1 ? inputParts[1].toUpperCase() : '';
-    
-    // Tính toán số tiền
-    let amountVND;
-    if (isValidNumber(expr)) {
-      amountVND = parseSpecialNumber(expr);
-    } else {
-      try {
-        amountVND = evaluateSpecialExpression(expr);
-        if (isNaN(amountVND)) {
-          amountVND = eval(expr); // fallback cho biểu thức không có số đặc biệt
-        }
-      } catch(err) {
-        bot.sendMessage(chatId, "");
-        return;
-      }
+
+    // amount*出款费率/汇率 (liên quan /d2) hoặc amount thuần
+    const parsedMinus = parsePlusAmountRateExpr(expr);
+    if (!parsedMinus.ok) {
+      bot.sendMessage(chatId, "指令无效。格式为：-数字 或 -数字*费率/汇率 或 -数字 [卡号]");
+      return;
     }
-    
+    const amountVND = parsedMinus.amount;
     if (isNaN(amountVND)) {
       bot.sendMessage(chatId, "");
       return;
@@ -361,29 +353,44 @@ const handleMinusCommand = async (bot, msg) => {
       return;
     }
     
-    // Kiểm tra tỷ giá
-    if (!group.exchangeRate) {
+    // Đường cũ (-số thuần): cần exchangeRate. Mode *费率/汇率: y mặc định từ /d2 hoặc 1
+    if (!parsedMinus.rateMode && !group.exchangeRate) {
       await sendPrivateNotice(bot, { chatId, userId: msg.from && msg.from.id, text: "请设置汇率，费率（用 /d 费率/汇率）" });
       return;
     }
     
-    // Tính toán giá trị USDT - sử dụng 出款费率 và 出款汇率 nếu có
-    let xValue, yValue, minusUSDT, rateFactor;
+    // Tính USDT: mode *N/y → amount*(1+N%/100)/y (/d2); không * / → d2 nếu có, không thì /d
+    let xValue, yValue, minusUSDT, rateFactor, storedRate;
     let useWithdrawRate = false;
     
-    if (group.withdrawRate !== null && group.withdrawExchangeRate !== null) {
-      // Sử dụng 出款费率 và 出款汇率
+    if (parsedMinus.rateMode) {
+      const resolved = resolveMinusXyDefaults(parsedMinus, group);
+      xValue = resolved.ratePercent;
+      yValue = resolved.y;
+      const factor = resolved.x; // 1 + rate%/100
+      if (!Number.isFinite(factor) || !Number.isFinite(yValue) || yValue === 0) {
+        bot.sendMessage(chatId, "输入的数值无效，请检查后重试。");
+        return;
+      }
+      minusUSDT = (amountVND * factor) / yValue;
+      rateFactor = formatRateFactor(factor);
+      storedRate = resolved.ratePercent;
+      useWithdrawRate = true;
+    } else if (group.withdrawRate !== null && group.withdrawExchangeRate !== null) {
+      // Sử dụng 出款费率 và 出款汇率 (/d2)
       xValue = group.withdrawRate;
       yValue = group.withdrawExchangeRate;
       minusUSDT = (amountVND / yValue) * (1 + xValue / 100);
       rateFactor = formatRateFactor(1 + xValue / 100);
+      storedRate = xValue;
       useWithdrawRate = true;
     } else {
-      // Sử dụng 费率 và 汇率 cũ
+      // Sử dụng 费率 và 汇率 cũ (/d)
       xValue = group.rate;
       yValue = group.exchangeRate;
       minusUSDT = (amountVND / yValue) * (1 - xValue / 100);
       rateFactor = formatRateFactor(1 - xValue / 100);
+      storedRate = xValue;
     }
     
     // Cập nhật group
@@ -412,9 +419,8 @@ const handleMinusCommand = async (bot, msg) => {
     // Lấy format của người dùng cho hiển thị details
     const userFormat = await getGroupNumberFormat(chatId);
     
-    // Tạo chi tiết giao dịch
+    // Tạo chi tiết giao dịch (*1 và /1 không hiện)
     let details;
-    const operator = useWithdrawRate ? '+' : '-';
     const rateSuffix = formatDepositRateSuffix(rateFactor, yValue);
     if (cardCode) {
       details = `\`${formatTimeString(new Date())}\` -*${formatSmart(amountVND, userFormat)}*${rateSuffix} = ${formatSmart(minusUSDT, userFormat)} (${cardCode}) ${senderMd}`;
@@ -433,7 +439,7 @@ const handleMinusCommand = async (bot, msg) => {
       senderId: senderTgId != null ? String(senderTgId) : null,
       senderUsername: senderUsername || '',
       cardCode,
-      rate: xValue,
+      rate: storedRate,
       exchangeRate: yValue,
       timestamp: new Date(),
       messageId
@@ -462,13 +468,13 @@ const handleMinusCommand = async (bot, msg) => {
       }
     }
     
-    // Tính toán giá trị ví dụ
+    // Ví dụ / header: dùng hệ số đã resolve; header nhóm vẫn theo /d /d2
     let exampleValue = null;
     if (Math.abs(amountVND) < 1) {
       if (useWithdrawRate) {
-        exampleValue = (100000 / yValue) * (1 + xValue / 100);
+        exampleValue = (100000 / yValue) * (1 + storedRate / 100);
       } else {
-        exampleValue = (100000 / yValue) * (1 - xValue / 100);
+        exampleValue = (100000 / yValue) * (1 - storedRate / 100);
       }
     }
     
@@ -495,14 +501,16 @@ const handleMinusCommand = async (bot, msg) => {
       cards: cardSummary
     };
     
-    // Thêm thông tin rate phù hợp
+    // Thêm thông tin rate phù hợp (header theo /d /d2 nhóm)
     if (useWithdrawRate) {
       responseData.rate = (group.rate !== null && group.rate !== undefined) ? formatRateValue(group.rate) + "%" : "未设置";
       responseData.exchangeRate = (group.exchangeRate !== null && group.exchangeRate !== undefined) ? formatRateValue(group.exchangeRate) : "未设置";
-      responseData.withdrawRate = formatRateValue(xValue) + "%";
-      responseData.withdrawExchangeRate = formatRateValue(yValue);
+      const headerWr = group.withdrawRate != null ? group.withdrawRate : storedRate;
+      const headerWy = group.withdrawExchangeRate != null ? group.withdrawExchangeRate : yValue;
+      responseData.withdrawRate = formatRateValue(headerWr) + "%";
+      responseData.withdrawExchangeRate = formatRateValue(headerWy);
     } else {
-      responseData.rate = formatRateValue(xValue) + "%";
+      responseData.rate = formatRateValue(storedRate) + "%";
       responseData.exchangeRate = formatRateValue(yValue);
     }
     

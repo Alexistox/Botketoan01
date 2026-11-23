@@ -374,15 +374,19 @@ const handleWithdrawRateCommand = async (bot, msg) => {
       return;
     }
     
-    const parts = param.split('/');
-    
-    if (parts.length !== 2) {
-      bot.sendMessage(chatId, "语法无效。例如: /d2 3/14800 或者 /d2 off");
+    // /d2 3/14800 hoặc /d2 3 (汇率 mặc định = 1) hoặc /d2 off
+    if (!param) {
+      bot.sendMessage(chatId, "语法无效。例如: /d2 3/14800 或 /d2 3 或者 /d2 off");
       return;
     }
-    
+    const parts = param.split('/');
+    if (parts.length > 2) {
+      bot.sendMessage(chatId, "语法无效。例如: /d2 3/14800 或 /d2 3 或者 /d2 off");
+      return;
+    }
+
     const newWithdrawRate = parseSpecialNumber(parts[0]);
-    const newWithdrawExRate = parseSpecialNumber(parts[1]);
+    const newWithdrawExRate = parts.length === 2 ? parseSpecialNumber(parts[1]) : 1;
     
     if (isNaN(newWithdrawRate) || isNaN(newWithdrawExRate)) {
       bot.sendMessage(chatId, "输入的数值无效，请检查后重试。");

@@ -1222,6 +1222,42 @@ const resolvePlusXyDefaults = (parsed, group) => {
   };
 };
 
+/**
+ * Resolve hệ số / 汇率 cho lệnh `-` (出款) từ `/d2`.
+ * Literal sau * = 出款费率 % → hệ số x = 1 + rate/100 (vd *12 → 1.12).
+ * y mặc định = withdrawExchangeRate (chưa → 1).
+ */
+const resolveMinusXyDefaults = (parsed, group) => {
+  const hasD2 =
+    group &&
+    group.withdrawRate != null &&
+    group.withdrawExchangeRate != null &&
+    Number(group.withdrawExchangeRate) !== 0;
+
+  const groupRate = hasD2
+    ? Number(group.withdrawRate)
+    : null;
+  const ex = hasD2 ? Number(group.withdrawExchangeRate) : null;
+
+  const ratePercent = parsed.xIsPlaceholder
+    ? (groupRate != null ? groupRate : 0)
+    : Number(parsed.xLiteral);
+
+  const x = 1 + ratePercent / 100;
+  const y = parsed.yIsPlaceholder
+    ? (ex != null ? ex : 1)
+    : Number(parsed.yLiteral);
+
+  return {
+    x,
+    y,
+    ratePercent,
+    hasD2: !!hasD2,
+    defaultX: groupRate != null ? 1 + groupRate / 100 : 1,
+    defaultY: ex != null ? ex : 1
+  };
+};
+
 module.exports = {
   formatSmart,
   formatNumberWithCommas,
@@ -1238,6 +1274,7 @@ module.exports = {
   evaluateSpecialExpression,
   parsePlusAmountRateExpr,
   resolvePlusXyDefaults,
+  resolveMinusXyDefaults,
   isTrc20Address,
   formatTelegramMessage,
   formatWithdrawRateMessage,
