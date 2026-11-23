@@ -1,6 +1,9 @@
 const BroadcastGroupSet = require('../models/BroadcastGroupSet');
 const BroadcastSavedMessage = require('../models/BroadcastSavedMessage');
+const BroadcastSchedule = require('../models/BroadcastSchedule');
 const { splitTelegramText } = require('../utils/telegramChunks');
+
+const SCHEDULE_TZ = 'Asia/Ho_Chi_Minh';
 
 function commandSource(msg) {
   return (msg.text || msg.caption || '').trim();
@@ -23,18 +26,6 @@ function isCmCommandSource(source) {
 
 function isNumericChatId(s) {
   return /^-?\d+$/.test(String(s).trim());
-}
-
-/** Telegram group IDs are negative; accept /dg 100... as /dg -100... */
-function chatIdPullVariants(raw) {
-  const s = String(raw).trim();
-  const variants = new Set([s]);
-  if (/^\d+$/.test(s)) {
-    variants.add(`-${s}`);
-  } else if (/^-\d+$/.test(s)) {
-    variants.add(s.slice(1));
-  }
-  return [...variants];
 }
 
 async function removeEmptyGroupSets() {
@@ -328,52 +319,270 @@ const handleBroadcastDg = async (bot, msg) => {
   const arg = argsAfterCommand(source);
 
   if (!arg) {
-    const variants = chatIdPullVariants(msg.chat.id.toString());
-    const r = await BroadcastGroupSet.updateMany(
-      {},
-      { $pull: { chatIds: { $in: variants } } }
-    );
+    const cid = msg.chat.id.toString();
+    const r = await BroadcastGroupSet.updateMany({}, { $pull: { chatIds: cid } });
     await removeEmptyGroupSets();
     await bot.sendMessage(
       msg.chat.id,
-      r.modifiedCount
-        ? `已将本群从 ${r.modifiedCount} 个集合中移除。`
-        : '本群不在任何集合中。'
+      `已将本群从所有集合中移除（匹配 ${r.matchedCount}）。`
     );
     return;
   }
 
   if (isNumericChatId(arg)) {
-    const variants = chatIdPullVariants(arg);
-    const r = await BroadcastGroupSet.updateMany(
-      {},
-      { $pull: { chatIds: { $in: variants } } }
-    );
+    const idStr = arg.trim();
+    const r = await BroadcastGroupSet.updateMany({}, { $pull: { chatIds: idStr } });
     await removeEmptyGroupSets();
-    const shown = variants.find((v) => v.startsWith('-')) || variants[0];
     await bot.sendMessage(
       msg.chat.id,
-      r.modifiedCount
-        ? `已将聊天 ${shown} 从 ${r.modifiedCount} 个集合中移除。`
-        : `集合中没有聊天 ${shown}（也已尝试 ${variants.join(' / ')}）。`
+      `已将聊天 ${idStr} 从所有集合中移除（匹配 ${r.matchedCount}）。`
     );
     return;
   }
 
   const tag = arg.toLowerCase();
-  const variants = chatIdPullVariants(msg.chat.id.toString());
-  const r = await BroadcastGroupSet.updateOne(
-    { tag },
-    { $pull: { chatIds: { $in: variants } } }
-  );
+  const cid = msg.chat.id.toString();
+  const r = await BroadcastGroupSet.updateOne({ tag }, { $pull: { chatIds: cid } });
   await removeEmptyGroupSets();
-  if (!r.matchedCount) {
-    await bot.sendMessage(msg.chat.id, `没有集合 "${tag}"。`);
-  } else if (r.modifiedCount) {
+  if (r.matchedCount) {
     await bot.sendMessage(msg.chat.id, `已将本群从集合 "${tag}" 中移除。`);
   } else {
-    await bot.sendMessage(msg.chat.id, `本群不在集合 "${tag}" 中。`);
+    await bot.sendMessage(msg.chat.id, `没有集合 "${tag}"。`);
   }
+};
+
+function parseHHmm(raw) {
+  const m = String(raw || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mi = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(mi) || h > 23 || mi > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
+}
+
+/** Ngày + giờ hiện tại theo Asia/Ho_Chi_Minh */
+function getSaigonNowParts(date = new Date()) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: SCHEDULE_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+  const parts = {};
+  for (const p of fmt.formatToParts(date)) {
+    if (p.type !== 'literal') parts[p.type] = p.value;
+  }
+  let hour = parts.hour;
+  if (hour === '24') hour = '00';
+  return {
+    dateStr: `${parts.year}-${parts.month}-${parts.day}`,
+    timeHHmm: `${hour}:${parts.minute}`
+  };
+}
+
+function describeScheduleSource(row) {
+  if (row.msgCode) return `code:${row.msgCode}`;
+  if (row.fromChatId != null && row.messageId != null) {
+    return `reply ${row.fromChatId}/${row.messageId}`;
+  }
+  return '?';
+}
+
+async function resolveScheduleMessageSource(row) {
+  if (row.msgCode) {
+    const saved = await BroadcastSavedMessage.findOne({ code: String(row.msgCode).toLowerCase() });
+    if (!saved) {
+      return { ok: false, message: `未找到消息 "${row.msgCode}"。` };
+    }
+    return { ok: true, fromChatId: saved.fromChatId, messageId: saved.messageId };
+  }
+  if (row.fromChatId != null && row.messageId != null) {
+    return { ok: true, fromChatId: String(row.fromChatId), messageId: Number(row.messageId) };
+  }
+  return { ok: false, message: '日程缺少消息来源。' };
+}
+
+/**
+ * Chạy một lịch: copyMessage tới mọi target. Cập nhật lastFiredDate khi bắt đầu (tránh trùng).
+ * @returns {{ ok: number, total: number, errors: string[] }}
+ */
+async function fireBroadcastSchedule(bot, schedule) {
+  const source = await resolveScheduleMessageSource(schedule);
+  if (!source.ok) {
+    return { ok: 0, total: 0, errors: [source.message] };
+  }
+  const resolved = await resolveBroadcastTargets(schedule.target);
+  if (!resolved.ok) {
+    return { ok: 0, total: 0, errors: [resolved.message] };
+  }
+
+  const today = getSaigonNowParts().dateStr;
+  await BroadcastSchedule.updateOne(
+    { _id: schedule._id },
+    { $set: { lastFiredDate: today } }
+  );
+
+  let ok = 0;
+  const errors = [];
+  for (const tid of resolved.targets) {
+    try {
+      await bot.copyMessage(tid, source.fromChatId, source.messageId);
+      ok += 1;
+    } catch (e) {
+      errors.push(`${tid}: ${e.message || e}`);
+    }
+  }
+  return { ok, total: resolved.targets.length, errors };
+}
+
+/**
+ * /cs <消息代码> <群组代码|ID> <HH:mm>
+ * hoặc reply + /cs <群组代码|ID> <HH:mm>
+ */
+const handleBroadcastCs = async (bot, msg) => {
+  const source = commandSource(msg);
+  const parts = source.split(/\s+/).filter(Boolean);
+  const cmd = (parts[0] || '').split('@')[0];
+  if (cmd !== '/cs' || parts.length < 3) {
+    await bot.sendMessage(
+      msg.chat.id,
+      '用法：/cs <消息代码> <群组代码或ID> <HH:mm>\n或回复消息后：/cs <群组代码或ID> <HH:mm>\n时区：Asia/Ho_Chi_Minh'
+    );
+    return;
+  }
+
+  const timeRaw = parts[parts.length - 1];
+  const timeHHmm = parseHHmm(timeRaw);
+  if (!timeHHmm) {
+    await bot.sendMessage(msg.chat.id, '时间格式无效。请使用 HH:mm（例如 09:00）。');
+    return;
+  }
+
+  let msgCode = null;
+  let fromChatId = null;
+  let messageId = null;
+  let target;
+
+  if (parts.length === 3) {
+    // /cs target HH:mm  (reply)  HOẶC  /cs code target HH:mm cần 4 tokens
+    // parts.length === 3 means: cmd + 2 args → reply form
+    if (!msg.reply_to_message) {
+      await bot.sendMessage(
+        msg.chat.id,
+        '请先回复要定时发送的消息，再发送 /cs <群组代码或ID> <HH:mm>；\n或不回复，使用 /cs <消息代码> <群组代码或ID> <HH:mm>。'
+      );
+      return;
+    }
+    target = parts[1];
+    fromChatId = msg.reply_to_message.chat.id.toString();
+    messageId = msg.reply_to_message.message_id;
+  } else {
+    // /cs code target HH:mm  (parts.length >= 4)
+    msgCode = parts[1].toLowerCase();
+    target = parts.slice(2, -1).join(' ').trim();
+    const saved = await BroadcastSavedMessage.findOne({ code: msgCode });
+    if (!saved) {
+      await bot.sendMessage(msg.chat.id, `未找到消息 "${msgCode}"。请先用 /cm 保存。`);
+      return;
+    }
+  }
+
+  if (!target) {
+    await bot.sendMessage(msg.chat.id, '缺少群组代码或ID。');
+    return;
+  }
+
+  const resolved = await resolveBroadcastTargets(target);
+  if (!resolved.ok) {
+    await bot.sendMessage(msg.chat.id, resolved.message);
+    return;
+  }
+
+  const createdBy = msg.from ? String(msg.from.id) : '';
+  const row = await BroadcastSchedule.create({
+    msgCode,
+    fromChatId,
+    messageId,
+    target: target.trim(),
+    timeHHmm,
+    enabled: true,
+    lastFiredDate: null,
+    createdBy
+  });
+
+  const srcLabel = describeScheduleSource(row);
+  await bot.sendMessage(
+    msg.chat.id,
+    `已设置每日定时发送（${SCHEDULE_TZ}）：\n` +
+      `#${row._id.toString().slice(-6)} ${timeHHmm} → ${target} ← ${srcLabel}\n` +
+      `目标群组数：${resolved.targets.length}`
+  );
+};
+
+/**
+ * /cslist
+ */
+const handleBroadcastCslist = async (bot, msg) => {
+  const list = await BroadcastSchedule.find().sort({ timeHHmm: 1, createdAt: 1 }).lean();
+  if (!list.length) {
+    await bot.sendMessage(msg.chat.id, '暂无定时发送。用法：/cs <消息代码> <群组代码或ID> <HH:mm>');
+    return;
+  }
+  const lines = list.map((row, i) => {
+    const n = i + 1;
+    const short = String(row._id).slice(-6);
+    const on = row.enabled === false ? ' [停用]' : '';
+    const last = row.lastFiredDate ? ` last=${row.lastFiredDate}` : '';
+    return `${n}. #${short} ${row.timeHHmm} → ${row.target} ← ${describeScheduleSource(row)}${on}${last}`;
+  });
+  await sendTelegramChunks(
+    bot,
+    msg.chat.id,
+    `定时发送列表（${SCHEDULE_TZ}）：\n${lines.join('\n')}\n\n删除：/ds <序号> 或 /ds <短码>`
+  );
+};
+
+/**
+ * /ds <序号|短码>
+ */
+const handleBroadcastDs = async (bot, msg) => {
+  const source = commandSource(msg);
+  const arg = argsAfterCommand(source).trim();
+  if (!arg) {
+    await bot.sendMessage(msg.chat.id, '用法：/ds <序号> 或 /ds <短码>（见 /cslist）');
+    return;
+  }
+
+  const list = await BroadcastSchedule.find().sort({ timeHHmm: 1, createdAt: 1 });
+  if (!list.length) {
+    await bot.sendMessage(msg.chat.id, '暂无定时发送可删除。');
+    return;
+  }
+
+  let row = null;
+  if (/^\d+$/.test(arg)) {
+    const idx = Number(arg);
+    if (idx >= 1 && idx <= list.length) {
+      row = list[idx - 1];
+    }
+  }
+  if (!row) {
+    const needle = arg.replace(/^#/, '').toLowerCase();
+    row = list.find((r) => String(r._id).toLowerCase().endsWith(needle)) || null;
+  }
+  if (!row) {
+    await bot.sendMessage(msg.chat.id, `未找到日程 "${arg}"。请用 /cslist 查看。`);
+    return;
+  }
+
+  await BroadcastSchedule.deleteOne({ _id: row._id });
+  await bot.sendMessage(
+    msg.chat.id,
+    `已删除定时 #${String(row._id).slice(-6)} ${row.timeHHmm} → ${row.target}`
+  );
 };
 
 module.exports = {
@@ -384,5 +593,12 @@ module.exports = {
   handleBroadcastCmlist,
   handleBroadcastSend,
   handleBroadcastDm,
-  handleBroadcastDg
+  handleBroadcastDg,
+  handleBroadcastCs,
+  handleBroadcastCslist,
+  handleBroadcastDs,
+  fireBroadcastSchedule,
+  getSaigonNowParts,
+  parseHHmm,
+  SCHEDULE_TZ
 };

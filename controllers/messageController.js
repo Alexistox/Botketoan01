@@ -72,7 +72,10 @@ const {
   handleBroadcastCmlist,
   handleBroadcastSend,
   handleBroadcastDm,
-  handleBroadcastDg
+  handleBroadcastDg,
+  handleBroadcastCs,
+  handleBroadcastCslist,
+  handleBroadcastDs
 } = require('./broadcastCommands');
 
 
@@ -392,6 +395,26 @@ const handleMessage = async (bot, msg, cache) => {
       }
       return;
     }
+
+    // Lệnh 定时 — alias /cs (lịch gửi cố định)
+    if (messageText === '定时' ||
+        messageText.startsWith('定时 ') ||
+        messageText.startsWith('定时/') ||
+        messageText.startsWith('定时:') ||
+        messageText.startsWith('定时：')) {
+      if (await isUserOperator(userId, chatId)) {
+        let rest = messageText.slice(2);
+        if (rest.startsWith(':') || rest.startsWith('：') || rest.startsWith('/')) {
+          rest = rest.slice(1);
+        }
+        rest = rest.trim();
+        const modifiedMsg = { ...msg, text: rest ? `/cs ${rest}` : '/cs' };
+        await handleBroadcastCs(bot, modifiedMsg);
+      } else {
+        await notifyNoOperator(bot, chatId, userId);
+      }
+      return;
+    }
     
     // Lệnh 撤销账单 (tương đương /skip)
     if (messageText.startsWith('撤回')) {
@@ -574,6 +597,33 @@ const handleMessage = async (bot, msg, cache) => {
       if (slashFirst === '/dg') {
         if (await isUserOperator(userId, chatId)) {
           await handleBroadcastDg(bot, msg);
+        } else {
+          await notifyNoOperator(bot, chatId, userId);
+        }
+        return;
+      }
+
+      if (slashFirst === '/cs') {
+        if (await isUserOperator(userId, chatId)) {
+          await handleBroadcastCs(bot, msg);
+        } else {
+          await notifyNoOperator(bot, chatId, userId);
+        }
+        return;
+      }
+
+      if (slashFirst === '/cslist') {
+        if (await isUserOperator(userId, chatId)) {
+          await handleBroadcastCslist(bot, msg);
+        } else {
+          await notifyNoOperator(bot, chatId, userId);
+        }
+        return;
+      }
+
+      if (slashFirst === '/ds') {
+        if (await isUserOperator(userId, chatId)) {
+          await handleBroadcastDs(bot, msg);
         } else {
           await notifyNoOperator(bot, chatId, userId);
         }
