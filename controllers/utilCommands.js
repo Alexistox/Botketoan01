@@ -431,11 +431,11 @@ const handleHelpCommand = async (bot, chatId) => {
 /dm [消息代码] - 删除已保存消息
 /send [消息代码] [群组代码或ID] - 将已保存消息发送到目标群组
 回复一条消息后 /send [群组代码或ID] - 直接发送该回复消息
-/cs [消息代码] [群组代码或ID] [HH:mm] - 每日定时发送（时区 Asia/Phnom_Penh 柬埔寨）
+/cs [消息代码] [群组代码或ID] [HH:mm] - 每日定时发送（时区 \`Asia/Phnom_Penh\` 柬埔寨）
 回复消息后 /cs [群组代码或ID] [HH:mm] - 定时发送该回复消息
 /cslist - 查看定时发送列表
 /ds [序号或短码] - 删除定时发送
-或者 定时 …（同 /cs）
+或者 定时 （同 /cs）
 
 -------------------------
 *其他功能:*
@@ -446,7 +446,13 @@ const handleHelpCommand = async (bot, chatId) => {
 -------------------------
 💡 如有疑问请联系群管理员。
 `;
-    bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' });
+    try {
+      await bot.sendMessage(chatId, helpMessage, { parse_mode: 'Markdown' });
+    } catch (mdErr) {
+      // Markdown lỗi (vd `_` trong timezone) → gửi plain text
+      console.warn('handleHelpCommand Markdown failed, fallback plain:', mdErr.message || mdErr);
+      await bot.sendMessage(chatId, helpMessage);
+    }
   } catch (error) {
     console.error('Error in handleHelpCommand:', error);
     bot.sendMessage(chatId, "显示帮助信息时出错。请稍后再试。");
