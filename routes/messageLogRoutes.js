@@ -105,7 +105,7 @@ router.get('/api/messagelogs', async (req, res) => {
     }
 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+    const limit = Math.min(300, Math.max(1, parseInt(req.query.limit, 10) || 100));
     const skip = (page - 1) * limit;
     const { startDate, endDate, q } = req.query;
 

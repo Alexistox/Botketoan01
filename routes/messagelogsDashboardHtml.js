@@ -672,7 +672,7 @@ function generateDashboardHTML(token, hoursLeft) {
       msgSortOrder = document.getElementById('msgSort').value || msgSortOrder;
       localStorage.setItem('messagelogs_sort', msgSortOrder);
       let url = '/api/messagelogs?token=' + encodeURIComponent(TOKEN) +
-        '&chatId=' + encodeURIComponent(activeChatId) + '&page=' + page + '&limit=30&sort=' + encodeURIComponent(msgSortOrder);
+        '&chatId=' + encodeURIComponent(activeChatId) + '&page=' + page + '&limit=100&sort=' + encodeURIComponent(msgSortOrder);
       if (msgStartDate) url += '&startDate=' + encodeURIComponent(msgStartDate);
       if (msgEndDate) url += '&endDate=' + encodeURIComponent(msgEndDate);
       if (msgSearchQuery) url += '&q=' + encodeURIComponent(msgSearchQuery);
